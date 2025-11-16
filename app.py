@@ -468,4 +468,35 @@ def admin_edit(id):
         name_only, ext = os.path.splitext(filename)
         ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')
         filename = f"{name_only}_{ts}{ext}"
-        file.save(os
+        file.save(os.path.join(UPLOAD_FOLDER_PRODUCTS, filename))
+
+    db = get_db()
+    cursor = db.cursor()
+    if filename:
+        cursor.execute(
+            "UPDATE produtos SET nome=%s, preco=%s, categoria=%s, image=%s, description=%s WHERE id=%s",
+            (nome, preco, categoria, filename, description, id)
+        )
+    else:
+        cursor.execute(
+            "UPDATE produtos SET nome=%s, preco=%s, categoria=%s, description=%s WHERE id=%s",
+            (nome, preco, categoria, description, id)
+        )
+    db.commit()
+    cursor.close()
+    flash("Produto atualizado!", "success")
+    return redirect(url_for('admin'))
+
+# -----------------------------------
+# STARTUP
+# -----------------------------------
+
+if __name__ == '__main__':
+    try:
+        conn_test = mysql.connector.connect(**MYSQL_CONFIG)
+        conn_test.close()
+        print("✅ Conexão MySQL OK")
+    except Exception as e:
+        print(f"❌ Falha ao conectar ao MySQL: {str(e)}")
+    _ensure_schema_on_start()
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=True)
