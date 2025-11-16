@@ -1,5 +1,5 @@
-Flask
-mysql-connector-python
+Flask==2.3.2
+mysql-connector-python==8.3.0
 reportlab
 Werkzeug
-gunicorn
+gunicorn==21.2.0
