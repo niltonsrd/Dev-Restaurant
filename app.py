@@ -27,7 +27,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 MYSQL_CONFIG = {
     'host': os.environ.get("mysql.railway.internal"),
     'user': os.environ.get("root"),
-    'password': os.environ.get("SmpuVESHmgHTeRZDPetfBQiOsEDupVDj"),
+    'password': os.environ.get("CUItDqGpSPErzMCnpMEKnCnzQOHVCanK"),
     'database': os.environ.get("railway"),
     'port': os.environ.get("3306")
 }
