@@ -1,0 +1,429 @@
+:root {
+  --primary: #ff3d00;        /* cor principal estilo iFood */
+  --primary-dark: #e63600;
+  --accent: #00c853;         /* verde estilo pagamento */
+  --bg: #121212;             /* fundo dark elegante */
+  --card: #ffffff;
+  --card-dark: #1e1e1e;
+  --muted: #b3b3b3;
+  --border: #2a2a2a;
+  --radius: 12px;
+}
+
+/* RESET */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Poppins", Arial, sans-serif;
+  background: 
+      linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)),
+      url("/static/img/background.jpg") center/cover fixed no-repeat;
+  color: #fff;
+}
+
+
+/* CONTAINER */
+.container {
+  max-width: 1180px;
+  margin: 25px auto;
+  padding: 0 18px;
+}
+
+/* ====================== HEADER ====================== */
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-bottom: 15px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 58px;
+  height: 58px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* BOTÕES */
+.btn,
+.controls a,
+.controls button {
+  background: var(--primary);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s;
+}
+
+.btn:hover,
+.controls a:hover {
+  background: var(--primary-dark);
+}
+
+/* ====================== LAYOUT PRINCIPAL ====================== */
+
+main {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 25px;
+  margin-top: 20px;
+}
+
+/* ====================== CARDÁPIO ====================== */
+
+.catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 22px;
+}
+
+.card {
+  background: var(--card-dark);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transition: .2s;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.55);
+}
+
+.card img {
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+}
+
+.card-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-title strong {
+  font-size: 16px;
+  color: #fff;
+}
+
+.card-title > div:first-child {
+  max-width: 65%;       /* impede que o texto empurre o preço */
+  overflow-wrap: break-word;
+}
+
+
+.card .muted {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.price {
+  white-space: nowrap;  /* impede quebrar a linha */
+  font-weight: 700;
+  font-size: 16px;
+}
+
+
+/* ====================== CARRINHO ====================== */
+
+.sidebar {
+  background: var(--card-dark);
+  border-radius: var(--radius);
+  padding: 20px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  color: #fff;
+  position: sticky;
+  top: 20px;
+}
+
+.cart-item {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.item-thumb {
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius);
+  object-fit: cover;
+}
+
+/* ====================== INPUTS ====================== */
+
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: var(--radius);
+  border: 1px solid #333;
+  background: #0f0f0f;
+  color: #fff;
+  font-size: 15px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+
+/* Caixa completa do PIX */
+.pix-box {
+  background: rgba(0, 255, 0, 0.05); /* fundo verde suave */
+  border: 1px solid #66cc77;
+  padding: 12px;
+  border-radius: 10px;
+  margin-top: 15px;
+  color: #fff; /* deixa os textos brancos */
+}
+
+/* Área onde aparece o QR Code */
+.qr-preview {
+  width: 100%;
+  text-align: center;
+  margin-top: 10px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);   /* fundo escuro para destacar */
+  border-radius: 8px;
+}
+
+/* O QR code em si */
+.qr-preview img {
+  width: 220px;
+  height: 220px;
+  border-radius: 8px;
+  display: block;
+  margin: 0 auto;
+  background: transparent !important;
+}
+
+/* Label acima do input */
+.pix-box label {
+  color: #fff;
+  font-weight: bold;
+  margin-top: 10px;
+  display: block;
+}
+
+
+
+/* ====================== FOOTER ====================== */
+
+footer {
+  margin-top: 30px;
+  text-align: center;
+  color: var(--muted);
+  padding: 16px 0;
+  font-size: 14px;
+}
+
+/* ====================== RESPONSIVIDADE ====================== */
+
+/* Tablets */
+@media (max-width: 1024px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+  }
+}
+
+/* Celulares */
+@media (max-width: 768px) {
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .catalog {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .card img {
+    height: 140px;
+  }
+}
+
+/* Celulares muito pequenos */
+@media (max-width: 480px) {
+
+  .catalog {
+    grid-template-columns: 1fr;
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+}
+
+/* ============================================
+   RESPONSIVIDADE FINAL AJUSTADA
+   (colar no final do style.css)
+============================================ */
+
+/* ---------- Telas até 992px (tablets grandes) ---------- */
+@media (max-width: 992px) {
+
+  /* Header alinha ao centro e organiza melhor */
+  header {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .brand {
+    flex-direction: column;
+  }
+
+  .logo {
+    width: 70px;
+    height: 70px;
+  }
+
+  /* Cardápio com 2 colunas confortáveis */
+  .catalog {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  /* Sidebar vira painel fluido */
+  main {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    margin-top: 25px;
+  }
+}
+
+/* ---------- Telas até 768px (celulares grandes) ---------- */
+@media (max-width: 768px) {
+
+  /* Header mais compacto */
+  header {
+    align-items: center;
+  }
+
+  .catalog {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+    gap: 16px;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 14px;
+    padding: 11px;
+  }
+
+  .card img {
+    height: 130px;
+  }
+}
+
+/* ---------- Telas até 600px (celulares comuns) ---------- */
+@media (max-width: 600px) {
+
+  .brand {
+    gap: 6px;
+  }
+
+  .logo {
+    width: 60px;
+    height: 60px;
+  }
+
+  h1 { font-size: 22px; }
+  h2 { font-size: 20px; }
+  h3 { font-size: 18px; }
+
+  /* Sidebar estilo painel */
+  .sidebar {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .catalog {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .cart-total {
+    font-size: 17px;
+  }
+
+  #btnCheckout {
+    padding: 14px;
+    font-size: 16px;
+  }
+}
+
+/* ---------- Telas muito pequenas (até 420px) ---------- */
+@media (max-width: 420px) {
+
+  .logo {
+    width: 46px;
+    height: 46px;
+  }
+
+  header {
+    padding: 6px 0;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 13px !important;
+    padding: 10px !important;
+  }
+
+  .sidebar {
+    padding: 12px;
+  }
+}
+

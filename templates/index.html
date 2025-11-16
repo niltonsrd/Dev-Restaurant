@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dev Restaurante</title>
+    <link
+      rel="icon"
+      href="{{ url_for('static', filename='favicon.ico') }}"
+      type="image/x-icon"
+    />
+
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- ====================== HEADER ====================== -->
+      <header>
+        <div class="brand">
+          <img
+            src="{{ url_for('static', filename='img/logo.png') }}"
+            class="logo"
+            alt="logo"
+          />
+
+          <div>
+            <h1>Dev Restaurante</h1>
+            <p class="subtitle">Peça Online — Rápido e Fácil</p>
+          </div>
+        </div>
+
+        <div class="controls">
+          <a class="btn btn-primary" href="/admin">Área Administrativa</a>
+        </div>
+      </header>
+
+      <!-- ====================== MAIN ====================== -->
+      <main>
+        <!-- ====================== CARDÁPIO ====================== -->
+        <section>
+          <h2>Cardápio</h2>
+          <div class="catalog" id="catalog"></div>
+        </section>
+
+        <!-- ====================== SIDEBAR (CARRINHO) ====================== -->
+        <aside class="sidebar">
+          <h3>Seu Carrinho</h3>
+
+          <div id="cartList"></div>
+
+          <div class="cart-total">
+            <div>Total</div>
+            <div id="cartTotal">R$ 0,00</div>
+          </div>
+
+          <input id="customerName" placeholder="Nome de quem recebe" />
+          <input id="customerAddress" placeholder="Endereço para entrega" />
+          <input id="customerContact" placeholder="Contato (WhatsApp)" />
+
+          <label for="customerBairro">Taxa de Entrega por Bairro</label>
+          <select id="customerBairro" name="bairro" required>
+            <option value="">Selecione o bairro</option>
+            <option value="Bairro da Paz" data-fee="5">Bairro da Paz</option>
+            <option value="Itapoã" data-fee="8">Itapoã</option>
+            <option value="Pituaçu" data-fee="7">Pituaçu</option>
+            <option value="São Cristovão" data-fee="6">São Cristovão</option>
+            <option value="Mussurunga" data-fee="6">Mussurunga</option>
+            <option value="Cabula" data-fee="12">Cabula</option>
+            <option value="Outro" data-fee="10">Outro</option>
+          </select>
+
+          <!-- ====================== MÉTODO DE PAGAMENTO ====================== -->
+          <label for="paymentMethod">Método de Pagamento</label>
+          <select id="paymentMethod">
+            <option value="">Selecione</option>
+            <option value="dinheiro">Dinheiro</option>
+            <option value="cartao">Cartão</option>
+            <option value="pix">Pix</option>
+          </select>
+
+          <!-- ===== PAGAMENTO EM DINHEIRO ===== -->
+          <div id="paymentCashBox" class="hidden">
+            <label>Precisa de troco?</label>
+            <select id="cashNeedChange">
+              <option value="nao">Não</option>
+              <option value="sim">Sim</option>
+            </select>
+
+            <input
+              type="text"
+              id="cashAmount"
+              class="hidden"
+              placeholder="Troco para quanto?"
+            />
+          </div>
+
+          <!-- ===== PAGAMENTO NO CARTÃO ===== -->
+          <div id="paymentCardBox" class="hidden pix-box">
+            O motoboy leva a maquininha 💳
+          </div>
+
+          <!-- ===== PAGAMENTO PIX ===== -->
+          <div id="paymentPixBox" class="hidden pix-box">
+            <p>Pague via PIX e envie o comprovante ⚡</p>
+
+            <button class="btn" id="generatePixBtn">Gerar QR Code PIX</button>
+
+            <div id="pixQrPreview" class="qr-preview hidden"></div>
+
+            <label>Enviar comprovante:</label>
+            <input type="file" id="pixComprovante" accept="image/*" />
+          </div>
+
+          <label for="customerNote">Observação</label>
+          <textarea
+            id="customerNote"
+            placeholder="Ex: tirar cebola, ponto da carne, etc"
+            rows="3"
+          ></textarea>
+
+          <button id="btnCheckout" class="btn btn-accent" disabled>
+            Finalizar pedido (WhatsApp)
+          </button>
+        </aside>
+      </main>
+
+      <!-- ====================== FOOTER ====================== -->
+      <footer>Desenvolvido por Nilton Santos — NTDEV</footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+  </body>
+</html>

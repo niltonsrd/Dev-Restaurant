@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin – Dev Restaurante</title>
+    <link
+      rel="icon"
+      href="{{ url_for('static', filename='favicon.ico') }}"
+      type="image/x-icon"
+    />
+
+    <style>
+      :root {
+        --primary: #ff3d00;
+        --primary-dark: #d83200;
+        --bg: #0f0f11;
+        --card: #141416;
+        --muted: #a8a8a8;
+        --radius: 12px;
+        --glass: rgba(255, 255, 255, 0.03);
+      }
+      * {
+        box-sizing: border-box;
+        font-family: Poppins, sans-serif;
+      }
+      body {
+        background: var(--bg);
+        color: #fff;
+        margin: 0;
+        padding: 22px;
+      }
+      header.top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 6px 0;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 80px;
+        resize: vertical;
+        display: block;
+      }
+
+      .top-right {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .logout-btn {
+        background: #333;
+        padding: 9px 14px;
+        border-radius: 10px;
+        border: 1px solid #222;
+        color: #fff;
+        cursor: pointer;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 18px;
+        align-items: center;
+      }
+      .tab {
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: var(--glass);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        cursor: pointer;
+        color: var(--muted);
+      }
+      .tab.active {
+        background: linear-gradient(
+          180deg,
+          var(--primary),
+          var(--primary-dark)
+        );
+        color: #fff;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+      }
+      main {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 18px;
+      }
+      /* left column cards */
+      .card {
+        background: var(--card);
+        border-radius: 12px;
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .add-box {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      input,
+      select,
+      textarea {
+        background: #0d0d0d;
+        border: 1px solid #222;
+        padding: 10px;
+        border-radius: 8px;
+        color: #fff;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+      }
+      .product-card {
+        display: flex;
+        flex-direction: column;
+        background: #0f0f10;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.02);
+      }
+      .product-card img {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        background: #111;
+      }
+      .product-body {
+        padding: 10px;
+      }
+      .card-actions {
+        display: flex;
+        gap: 8px;
+        padding: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .btn {
+        background: var(--primary);
+        border: none;
+        padding: 10px 14px;
+        border-radius: 10px;
+        color: #fff;
+        cursor: pointer;
+      }
+      .btn.ghost {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .btn-danger {
+        background: #d63031;
+      }
+
+      /* right column (sidebar) */
+      aside.sidebar {
+        height: fit-content;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      /* vendas area */
+      .vendas-filters {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .table th,
+      .table td {
+        padding: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        text-align: left;
+        font-size: 14px;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .status-pill {
+        padding: 6px 8px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 12px;
+      }
+      .status-pendente {
+        background: rgba(255, 193, 7, 0.12);
+        color: #ffc107;
+      }
+      .status-concluido {
+        background: rgba(76, 175, 80, 0.12);
+        color: #4caf50;
+      }
+      .status-entrega {
+        background: rgba(3, 169, 244, 0.08);
+        color: #03a9f4;
+      }
+
+      /* modal */
+      .modal-bg {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .modal {
+        background: var(--card);
+        padding: 18px;
+        border-radius: 12px;
+        max-width: 880px;
+        width: 100%;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .modal .items {
+        max-height: 320px;
+        overflow: auto;
+        margin-top: 10px;
+      }
+      .modal .row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+      }
+      .small {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      /* responsive */
+      @media (max-width: 980px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+        aside.sidebar {
+          order: 2;
+        }  
+      }
+
+      /* ====== MOBILE EXTRA ====== */
+
+/* Telas até 768px — celulares */
+@media (max-width: 768px) {
+
+  body {
+    padding: 14px;
+  }
+
+  header.top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .top-right {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .tabs {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+
+  .tab {
+    flex-shrink: 0;
+  }
+
+  /* Grid principal vira 1 coluna */
+  main {
+    grid-template-columns: 1fr;
+  }
+
+  /* Sidebar desce */
+  aside.sidebar {
+    order: 2;
+  }
+
+  /* Cards mais fluidos */
+  .card {
+    padding: 12px;
+  }
+
+  /* Grid de produtos em 1 coluna */
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Imagem do produto menor */
+  .product-card img {
+    height: 130px;
+  }
+
+  /* Filtros de vendas ocupam a tela toda */
+  .vendas-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .vendas-filters input,
+  .vendas-filters select {
+    width: 100%;
+  }
+
+  /* Botão Atualizar ocupa uma linha inteira */
+  .vendas-filters button {
+    grid-column: span 2;
+    width: 100%;
+  }
+
+  /* Tabela scroll horizontal no mobile */
+  table.table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* Modal ocupa quase toda tela */
+  .modal {
+    max-width: 100%;
+    padding: 16px;
+  }
+
+  .modal .row {
+    flex-direction: column;
+    text-align: left;
+    gap: 4px;
+  }
+
+  #vendaTotals {
+    font-size: 14px;
+  }
+
+  /* Botões do modal empilhados */
+  #modalVendaInner > div:last-child {
+    flex-direction: column;
+  }
+
+  #modalVendaInner .btn {
+    width: 100%;
+  }
+}
+
+/* Telas muito pequenas (até 480px) */
+@media (max-width: 480px) {
+
+  h1 {
+    font-size: 18px;
+  }
+
+  .tabs {
+    gap: 6px;
+  }
+
+  .tab {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+
+  .product-card img {
+    height: 110px;
+  }
+
+  .modal {
+    padding: 14px;
+  }
+
+  #vendaTotals {
+    font-size: 13px;
+  }
+}
+
+    </style>
+  </head>
+
+  <body>
+    <header class="top">
+      <div>
+        <h1>Painel Administrativo — Dev Restaurante</h1>
+        <div class="muted">Área administrativa • NTDEV</div>
+      </div>
+
+      <div class="top-right">
+        <div class="tabs" id="tabs">
+          <div class="tab active" data-tab="produtos">Produtos</div>
+          <div class="tab" data-tab="vendas">Vendas</div>
+          <div class="tab" data-tab="config">Configurações</div>
+        </div>
+
+        <form method="POST" action="/admin/logout" style="margin-left: 10px">
+          <button class="logout-btn">Sair</button>
+        </form>
+      </div>
+    </header>
+
+    <main>
+      <!-- LEFT: conteúdo que muda por aba -->
+      <section id="content-area">
+        <!-- ========== PRODUTOS (default) ========== -->
+        <div id="produtos" class="card">
+          <h2>Gerenciar Produtos</h2>
+          <div class="add-box card">
+            <h3>Adicionar Novo Produto</h3>
+            <form
+              action="/admin/add"
+              method="POST"
+              enctype="multipart/form-data"
+              id="formAdd"
+            >
+              <input type="text" name="name" placeholder="Nome" required />
+              <input
+                type="number"
+                name="price"
+                placeholder="Preço"
+                step="0.01"
+                required
+              />
+              <select name="category" required>
+                <option value="">Categoria</option>
+                <option>Lanches</option>
+                <option>Bebidas</option>
+                <option>Pizzas</option>
+                <option>Porções</option>
+                <option>Doces</option>
+              </select>
+              <textarea name="description" placeholder="Descrição"></textarea>
+              <input type="file" name="image" accept="image/*" />
+              <div style="display: flex; gap: 8px; margin-top: 8px">
+                <button class="btn" type="submit">Adicionar</button>
+                <button
+                  class="btn ghost"
+                  type="button"
+                  onclick="document.getElementById('formAdd').reset()"
+                >
+                  Limpar
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <h3 style="margin-top: 14px">Produtos cadastrados</h3>
+          <div class="grid" id="productGrid">
+            {% for p in products %}
+            <div class="product-card">
+              <img
+                src="/static/img/{{ p.image }}"
+                alt="{{ p.name }}"
+                onerror="this.src='/static/img/default.png'"
+              />
+              <div class="product-body">
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: start;
+                  "
+                >
+                  <div>
+                    <div style="font-weight: 700">{{ p.name }}</div>
+                    <div class="muted">{{ p.category }}</div>
+                  </div>
+                  <div style="text-align: right">
+                    <div style="font-weight: 700">
+                      R$ {{ '%.2f'|format(p.price) }}
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style="margin-top: 8px; color: var(--muted); font-size: 13px"
+                >
+                  {{ p.description }}
+                </div>
+              </div>
+              <div class="card-actions">
+                <button
+                  class="btn ghost"
+                  onclick="openEdit('{{ p.id }}','{{ p.name }}','{{ p.price }}','{{ p.category }}',`{{ p.description }}`)"
+                >
+                  Editar
+                </button>
+                <form
+                  action="/admin/delete/{{ p.id }}"
+                  method="POST"
+                  style="display: inline"
+                >
+                  <button class="btn btn-danger">Excluir</button>
+                </form>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- ========== VENDAS ========== -->
+        <div id="vendas" class="card" style="display: none">
+          <h2>Vendas</h2>
+
+          <div class="vendas-filters">
+            <input
+              type="text"
+              id="searchCliente"
+              placeholder="Buscar por cliente ou ID"
+            />
+            <input type="date" id="dateFrom" />
+            <input type="date" id="dateTo" />
+            <select id="filterStatus">
+              <option value="">Todos status</option>
+              <option value="pendente">Pendente</option>
+              <option value="concluido">Concluído</option>
+              <option value="entrega">Saiu para entrega</option>
+            </select>
+            <button class="btn" onclick="loadVendas()">Atualizar</button>
+          </div>
+
+          <div style="overflow: auto">
+            <table class="table" id="vendasTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Cliente</th>
+                  <th>Total</th>
+                  <th>Pagamento</th>
+                  <th>Data</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="vendasBody">
+                <!-- preenchido por JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ========== CONFIGURAÇÕES ========== -->
+        <div id="config" class="card" style="display: none">
+          <h2>Configurações</h2>
+          <div class="card" style="padding: 12px">
+            <div class="muted">Configurações básicas do painel</div>
+            <form
+              id="configForm"
+              style="display: grid; gap: 8px; margin-top: 10px"
+            >
+              <label class="small">Telefone para WhatsApp</label>
+              <input
+                type="text"
+                id="cfgPhone"
+                value="{{ request.environ.get('RESTAURANT_PHONE', '') or '' }}"
+              />
+              <label class="small">Tempo da sessão (segundos)</label>
+              <input type="number" id="cfgSession" value="3600" />
+              <div style="display: flex; gap: 8px">
+                <button class="btn" type="button" onclick="saveConfig()">
+                  Salvar
+                </button>
+                <button
+                  class="btn ghost"
+                  type="button"
+                  onclick="location.reload()"
+                >
+                  Recarregar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: resumo / ações rápidas -->
+      <aside class="sidebar">
+        <div class="card">
+          <h3>Resumo</h3>
+          <div class="muted">Vendas (últimas 24h)</div>
+          <div id="resumo24" style="margin-top: 8px; font-weight: 700">—</div>
+          <div style="height: 10px"></div>
+          <h4>Pesquisar venda</h4>
+          <input
+            type="text"
+            id="quickSearch"
+            placeholder="Pesquisar por cliente ou ID"
+          />
+          <button class="btn" style="margin-top: 8px" onclick="quickSearch()">
+            Buscar
+          </button>
+        </div>
+
+        <div class="card">
+          <h3>Ações</h3>
+          <button class="btn" onclick="loadVendas()">Atualizar vendas</button>
+          <button class="btn ghost" onclick="openTab('produtos')">
+            Ir para Produtos
+          </button>
+        </div>
+      </aside>
+    </main>
+
+    <!-- EDIT MODAL (produto) -->
+    <div class="modal-bg" id="modalEdit">
+      <div class="modal">
+        <h3>Editar Produto</h3>
+        <form id="editForm" method="POST" enctype="multipart/form-data">
+          <input type="text" id="editName" name="name" required />
+          <input
+            type="number"
+            id="editPrice"
+            name="price"
+            step="0.01"
+            required
+          />
+          <select id="editCategory" name="category" required>
+            <option>Lanches</option>
+            <option>Bebidas</option>
+            <option>Pizzas</option>
+            <option>Porções</option>
+            <option>Doces</option>
+          </select>
+          <textarea id="editDescription" name="description"></textarea>
+          <label style="margin-top: 10px">Nova imagem (opcional)</label>
+          <input type="file" name="image" />
+          <div style="display: flex; gap: 8px; margin-top: 12px">
+            <button class="btn" type="submit">Salvar alterações</button>
+            <button class="btn btn-danger" type="button" onclick="closeEdit()">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL DE VENDA (detalhes) -->
+    <div class="modal-bg" id="modalVenda">
+      <div class="modal" id="modalVendaInner">
+        <h3>Detalhes da Venda <span id="vendaIdTitle"></span></h3>
+        <div id="vendaInfo" class="small muted"></div>
+        <div class="items" id="vendaItems"></div>
+
+        <div style="display: flex; gap: 8px; margin-top: 12px">
+          <button class="btn" id="btnDownloadNota">Baixar Nota (PDF)</button>
+          <button class="btn" id="btnMarcar">Marcar como Concluído</button>
+          <button class="btn ghost" onclick="closeVendaModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /* ---------- TAB CONTROLE ---------- */
+      const tabs = document.querySelectorAll(".tab");
+      function openTab(name) {
+        tabs.forEach((t) =>
+          t.classList.toggle("active", t.dataset.tab === name)
+        );
+        document.getElementById("produtos").style.display =
+          name === "produtos" ? "block" : "none";
+        document.getElementById("vendas").style.display =
+          name === "vendas" ? "block" : "none";
+        document.getElementById("config").style.display =
+          name === "config" ? "block" : "none";
+        if (name === "vendas") loadVendas();
+      }
+      tabs.forEach((t) =>
+        t.addEventListener("click", () => openTab(t.dataset.tab))
+      );
+
+      /* ---------- EDIT PRODUTO ---------- */
+      function openEdit(id, name, price, category, description) {
+        document.getElementById("modalEdit").style.display = "flex";
+        document.getElementById("editName").value = name;
+        document.getElementById("editPrice").value = price;
+        document.getElementById("editCategory").value = category;
+        document.getElementById("editDescription").value = description;
+        document.getElementById("editForm").action = "/admin/edit/" + id;
+      }
+      function closeEdit() {
+        document.getElementById("modalEdit").style.display = "none";
+      }
+
+      /* ---------- VENDAS (fetch) ---------- */
+      async function loadVendas() {
+        const qCliente = document
+          .getElementById("searchCliente")
+          .value.trim()
+          .toLowerCase();
+        const dateFrom = document.getElementById("dateFrom").value;
+        const dateTo = document.getElementById("dateTo").value;
+        const statusFilter = document.getElementById("filterStatus").value;
+
+        const res = await fetch("/admin/api/vendas");
+        if (!res.ok) {
+          alert("Erro ao carregar vendas");
+          return;
+        }
+        let data = await res.json();
+
+        // filtros simples (cliente/id/status/data)
+        data = data.filter((v) => {
+          if (qCliente) {
+            const s = (
+              String(v.nome_cliente || v.cliente || "") +
+              " " +
+              String(v.id)
+            ).toLowerCase();
+            if (!s.includes(qCliente)) return false;
+          }
+          if (
+            statusFilter &&
+            String(v.status || "").toLowerCase() !== statusFilter.toLowerCase()
+          )
+            return false;
+          if (dateFrom) {
+            const d = new Date(v.data);
+            if (d < new Date(dateFrom + "T00:00:00")) return false;
+          }
+          if (dateTo) {
+            const d = new Date(v.data);
+            if (d > new Date(dateTo + "T23:59:59")) return false;
+          }
+          return true;
+        });
+
+        const tbody = document.getElementById("vendasBody");
+        tbody.innerHTML = "";
+        data.forEach((v) => {
+          const tr = document.createElement("tr");
+          const status = (v.status || "pendente").toLowerCase();
+          let pillClass = "status-pendente";
+          if (status === "concluido" || status === "concluído")
+            pillClass = "status-concluido";
+          if (status === "entrega" || status === "saiu para entrega")
+            pillClass = "status-entrega";
+          tr.innerHTML = `
+          <td>${v.id}</td>
+          <td>${v.nome_cliente || v.cliente || "—"}</td>
+          <td>R$ ${parseFloat(v.total || 0).toFixed(2)}</td>
+          <td>${v.forma_pagamento || "—"}</td>
+          <td>${new Date(v.data).toLocaleString()}</td>
+          <td><span class="status-pill ${pillClass}">${status}</span></td>
+          <td>
+            <button class="btn ghost" onclick="viewVenda(${v.id})">Ver</button>
+            <button class="btn" onclick="downloadNota(${v.id})">Nota</button>
+            <button class="btn btn-danger" onclick="deleteVenda(${
+              v.id
+            })">Remover</button>
+          </td>
+        `;
+          tbody.appendChild(tr);
+        });
+
+        // resumo rápido
+        document.getElementById("resumo24").innerText =
+          data.length + " vendas listadas";
+      }
+
+      /* ---------- Detalhes da venda e ações ---------- */
+      async function viewVenda(id){
+  // abrir modal e buscar itens
+  document.getElementById('modalVenda').style.display='flex';
+  document.getElementById('vendaIdTitle').innerText = '#' + id;
+
+  // busca itens (produtos)
+  const resItens = await fetch(`/admin/vendas/${id}/itens`);
+  let itens = [];
+  if(!resItens.ok){
+    document.getElementById('vendaItems').innerText = 'Erro ao carregar itens';
+  } else {
+    itens = await resItens.json();
+  }
+
+  const list = document.getElementById('vendaItems');
+  list.innerHTML = '';
+
+  // calcula subtotal
+  let subtotal = 0;
+  itens.forEach(it=>{
+    const row = document.createElement('div');
+    row.className = 'row';
+    const nome = it.produto_nome || ('ID ' + it.produto_id);
+    const qtd = Number(it.quantidade || 0);
+    const preco = Number(it.preco_unitario || 0);
+    const totalItem = qtd * preco;
+    subtotal += totalItem;
+
+    row.innerHTML = `<div>${qtd}x ${nome}</div><div>R$ ${preco.toFixed(2)}</div>`;
+    list.appendChild(row);
+  });
+
+  // buscar info da venda (já retorna bairro e delivery_fee se ajustado no backend)
+  const all = await (await fetch('/admin/api/vendas')).json();
+  const venda = all.find(x => x.id === id) || {};
+
+  // entrega/taxa (fallback 0)
+  const deliveryFee = parseFloat(venda.delivery_fee || venda.tax || 0) || 0;
+  const totalFinal = subtotal + deliveryFee;
+
+  // montar texto de info com bairro e taxa
+  const tel = venda.telefone || venda.contato || '—';
+  const end = venda.endereco || '—';
+  const bairro = venda.bairro || '—';
+  const pagamento = venda.forma_pagamento || '—';
+
+  // mostrar info: cliente, telefone, endereço, bairro, subtotal, taxa e total
+  document.getElementById('vendaInfo').innerText =
+    `Cliente: ${venda.nome_cliente || venda.cliente || '—'} • Tel: ${tel} • End.: ${end} • Bairro: ${bairro}`;
+
+  // adicionar resumo de totais logo abaixo (ou substitua vendaItems por novo bloco)
+  // vamos criar/atualizar um bloco de totais no modal (se já existir, usamos; se não, criamos)
+  let totalsEl = document.getElementById('vendaTotals');
+  if(!totalsEl){
+    totalsEl = document.createElement('div');
+    totalsEl.id = 'vendaTotals';
+    totalsEl.style.marginTop = '8px';
+    totalsEl.style.fontWeight = '700';
+    totalsEl.style.textAlign = 'right';
+    document.getElementById('modalVendaInner').appendChild(totalsEl);
+  }
+  totalsEl.innerHTML = `
+    Subtotal: R$ ${subtotal.toFixed(2)}<br/>
+    Taxa de entrega: R$ ${deliveryFee.toFixed(2)}<br/>
+    <span style="font-size:15px">Total: R$ ${totalFinal.toFixed(2)}</span>
+  `;
+
+  // configurar botões
+  document.getElementById('btnDownloadNota').onclick = ()=> downloadNota(id);
+  document.getElementById('btnMarcar').onclick = ()=> marcarConcluido(id);
+}
+
+
+      function closeVendaModal() {
+        document.getElementById("modalVenda").style.display = "none";
+      }
+
+      /* ---------- Baixar nota PDF (rota já existente) ---------- */
+      function downloadNota(id) {
+        // abre em nova aba para baixar (rota: /admin/vendas/<id>/nota)
+        window.open(`/admin/vendas/${id}/nota`, "_blank");
+      }
+
+      /* ---------- Marcar como concluído (chama rota que vamos adicionar) ---------- */
+      async function marcarConcluido(id) {
+        try {
+          const res = await fetch(`/admin/vendas/${id}/status`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "concluido" }),
+          });
+          if (!res.ok) throw new Error("Falha");
+          alert("Venda marcada como concluída");
+          loadVendas();
+          closeVendaModal();
+        } catch (e) {
+          alert("Erro ao marcar: " + e.message);
+        }
+      }
+
+      /* ---------- Deletar venda ---------- */
+      async function deleteVenda(id) {
+        if (!confirm("Remover venda ID " + id + " ?")) return;
+        try {
+          const res = await fetch(`/admin/vendas/${id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error("Falha ao remover");
+          alert("Removido");
+          loadVendas();
+        } catch (e) {
+          alert("Erro: " + e.message);
+        }
+      }
+
+      /* ---------- Quick search do sidebar ---------- */
+      function quickSearch() {
+        const q = document
+          .getElementById("quickSearch")
+          .value.trim()
+          .toLowerCase();
+        document.getElementById("searchCliente").value = q;
+        openTab("vendas");
+        loadVendas();
+      }
+
+      /* ---------- Config (placeholder) ---------- */
+      function saveConfig() {
+        alert("Configurações salvas (placeholder).");
+      }
+
+      // inicia
+      (function init() {
+        // mantém aba Produtos visível por padrão (é o default)
+        openTab("produtos");
+      })();
+    </script>
+  </body>
+</html>
