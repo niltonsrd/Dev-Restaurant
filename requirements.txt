@@ -1,6 +1,6 @@
 Flask
 gunicorn
-cloud-sql-python-connector
+google-cloud-sql-connector[pymysql]
 pymysql
 python-dotenv
 reportlab
