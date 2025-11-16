@@ -32,7 +32,7 @@ MYSQL_CONFIG = {
     'password': os.getenv("MYSQL_PASSWORD"),
     'database': os.getenv("MYSQL_DB"),
     # Converte a porta para inteiro, usando 3306 como fallback se não estiver definida
-    'port': int(os.getenv("MYSQL_PORT", 5432))
+    'port': int(os.getenv("MYSQL_PORT", 3306))
 }
 
 
