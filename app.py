@@ -27,12 +27,12 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 MYSQL_CONFIG = {
     # Garante que, se não encontrar a variável, o host seja None (ou um erro) e não caia em localhost
-    'host': os.environ.get("MYSQLHOST"),
-    'user': os.environ.get("MYSQLUSER"),
-    'password': os.environ.get("MYSQLPASSWORD"),
-    'database': os.environ.get("MYSQLDATABASE"),
+    'host': os.environ.get("MYSQL_HOST"),
+    'user': os.environ.get("MYSQL_USER"),
+    'password': os.environ.get("MYSQL_PASSWORD"),
+    'database': os.environ.get("MYSQL_DB"),
     # Converte a porta para inteiro, usando 5432 como fallback se não estiver definida
-    'port': int(os.environ.get("MYSQLPORT", 5432))
+    'port': int(os.environ.get("MYSQL_PORT", 5432))
 }
 
 
