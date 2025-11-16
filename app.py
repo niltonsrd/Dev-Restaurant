@@ -769,28 +769,4 @@ def api_delete_venda(pedido_id):
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
-# -----------------------------------
-# RUN
-# -----------------------------------
-
-import os
-
-if __name__ == '__main__':
-    # apenas testa conexão ao iniciar
-    try:
-        conn_test = mysql.connector.connect(
-            host=MYSQL_CONFIG['host'],
-            user=MYSQL_CONFIG['user'],
-            password=MYSQL_CONFIG['password']
-        )
-        conn_test.close()
-    except Exception as e:
-        print("Atenção: falha ao conectar ao MySQL. Verifique credenciais/servidor.")
-        print(str(e))
-
-    # CHAMAR A FUNÇÃO DE CRIAR/ATUALIZAR TABELAS AQUI
-    _ensure_schema_on_start()
-
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
 
