@@ -31,8 +31,8 @@ MYSQL_CONFIG = {
     'user': os.environ.get("MYSQL_USER"),
     'password': os.environ.get("MYSQL_PASSWORD"),
     'database': os.environ.get("MYSQL_DB"),
-    # Converte a porta para inteiro, usando 5432 como fallback se não estiver definida
-    'port': int(os.environ.get("MYSQL_PORT", 5432))
+    # Converte a porta para inteiro, usando 3306 como fallback se não estiver definida
+    'port': int(os.environ.get("MYSQL_PORT", 3306))
 }
 
 
@@ -70,6 +70,7 @@ def get_db():
                 user=MYSQL_CONFIG['user'],
                 password=MYSQL_CONFIG['password'],
                 database=MYSQL_CONFIG['database'],
+                port=MYSQL_CONFIG['port'],
             )
             # garante autocommit explícito = False (você já faz commits manualmente)
             conn.autocommit = False
@@ -772,28 +773,22 @@ def api_delete_venda(pedido_id):
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
-# -----------------------------------
+# -----------------------------
 # RUN
-# -----------------------------------
-
-import os
-
+# -----------------------------
 if __name__ == '__main__':
-    # apenas testa conexão ao iniciar
     try:
         conn_test = mysql.connector.connect(
             host=MYSQL_CONFIG['host'],
             user=MYSQL_CONFIG['user'],
-            password=MYSQL_CONFIG['password']
+            password=MYSQL_CONFIG['password'],
+            database=MYSQL_CONFIG['database'],
+            port=MYSQL_CONFIG['port']
         )
         conn_test.close()
     except Exception as e:
-        print("Atenção: falha ao conectar ao MySQL. Verifique credenciais/servidor.")
-        print(str(e))
+        print("Falha ao conectar ao MySQL:", str(e))
 
-    # CHAMAR A FUNÇÃO DE CRIAR/ATUALIZAR TABELAS AQUI
     _ensure_schema_on_start()
-
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
