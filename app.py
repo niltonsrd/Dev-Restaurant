@@ -4,18 +4,30 @@ from datetime import datetime, timezone
 import decimal
 import traceback
 
+# Cloud SQL Connector (MySQL via pymysql)
+from cloud_sql_python_connector import Connector
+import pymysql
+import pymysql.cursors
+
+
 from flask import (
     Flask, render_template, render_template_string, g, jsonify,
     request, redirect, url_for, flash, send_from_directory, abort, make_response
 )
 from werkzeug.utils import secure_filename
 
-# Dependência MySQL
-import mysql.connector
-from mysql.connector import errorcode
-
 # PDF
 from reportlab.pdfgen import canvas
+
+# Se você colocar a chave JSON da service account em SERVICE_ACCOUNT_JSON (variável de ambiente),
+# este bloco gera um arquivo temporário e aponta GOOGLE_APPLICATION_CREDENTIALS para ele.
+SERVICE_ACCOUNT_JSON = os.getenv("SERVICE_ACCOUNT_JSON")
+if SERVICE_ACCOUNT_JSON:
+    sa_path = "/tmp/gcloud_sa.json"
+    with open(sa_path, "w") as f:
+        f.write(SERVICE_ACCOUNT_JSON)
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = sa_path
+
 
 # -----------------------------------
 # CONFIGURAÇÕES DO SISTEMA
@@ -23,17 +35,22 @@ from reportlab.pdfgen import canvas
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-# MySQL (ajuste usuário/senha/host se necessário)
+# ---------------------------
+# Configuração Cloud SQL
+# ---------------------------
+INSTANCE_CONNECTION_NAME = os.getenv("INSTANCE_CONNECTION_NAME")  # exemplo: projeto:region:instancia
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_NAME = os.getenv("DB_NAME", "dev_restaurante")
 
-MYSQL_CONFIG = {
-    # Garante que, se não encontrar a variável, o host seja None (ou um erro) e não caia em localhost
-    'host': os.getenv("MYSQL_HOST"),
-    'user': os.getenv("MYSQL_USER"),
-    'password': os.getenv("MYSQL_PASSWORD"),
-    'database': os.getenv("MYSQL_DB"),
-    # Converte a porta para inteiro, usando 3306 como fallback se não estiver definida
-    'port': int(os.getenv("MYSQL_PORT", 3306))
-}
+# Criar um Connector único (reuso)
+_connector = None
+
+def _get_connector():
+    global _connector
+    if _connector is None:
+        _connector = Connector()
+    return _connector
 
 
 UPLOAD_FOLDER_PRODUCTS = os.path.join(BASE_DIR, 'static', 'img')
@@ -63,26 +80,26 @@ app.config['NOTAS_FOLDER'] = NOTAS_FOLDER
 # -----------------------------------
 
 def get_db():
+    """
+    Retorna uma conexão (DB-API) conectada via Cloud SQL Connector (pymysql).
+    Usa g para cache por request.
+    """
     if '_database' not in g:
-        try:
-            conn = mysql.connector.connect(
-                host=MYSQL_CONFIG['host'],
-                user=MYSQL_CONFIG['user'],
-                password=MYSQL_CONFIG['password'],
-                database=MYSQL_CONFIG['database'],
-                port=MYSQL_CONFIG['port'],
-            )
-            # garante autocommit explícito = False (você já faz commits manualmente)
-            conn.autocommit = False
-            g._database = conn
-        except mysql.connector.Error as err:
-            # Mensagem clara para debug local
-            if getattr(err, 'errno', None) == errorcode.ER_ACCESS_DENIED_ERROR:
-                raise RuntimeError("Erro MySQL: usuário/senha incorretos")
-            elif getattr(err, 'errno', None) == errorcode.ER_BAD_DB_ERROR:
-                raise RuntimeError("Erro MySQL: banco de dados não existe")
-            else:
-                raise
+        if not INSTANCE_CONNECTION_NAME or not DB_USER or not DB_PASSWORD or not DB_NAME:
+            raise RuntimeError("Variáveis de ambiente Cloud SQL não configuradas (INSTANCE_CONNECTION_NAME, DB_USER, DB_PASSWORD, DB_NAME).")
+        connector = _get_connector()
+        # connector.connect retorna um objeto compatível DB-API (pymysql)
+        conn = connector.connect(
+            INSTANCE_CONNECTION_NAME,
+            "pymysql",
+            user=DB_USER,
+            password=DB_PASSWORD,
+            db=DB_NAME,
+            enable_iam_auth=False,  # deixe True se estiver usando IAM auth
+        )
+        # opcional: set autocommit como você preferir (manter False, já que seu código usa commit manual)
+        conn.autocommit(False)
+        g._database = conn
     return g._database
 
 @app.teardown_appcontext
@@ -93,6 +110,7 @@ def close_connection(exception):
             db.close()
         except Exception:
             pass
+    # NÃO fechamos o Connector global aqui; ele pode ser reutilizado
 
 # -----------------------------------
 # HELPERS
@@ -179,7 +197,7 @@ def index():
 @app.route('/api/products')
 def api_products():
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     # adaptando nomes: tabela produtos com colunas nome, preco, categoria, image, description
     cursor.execute("SELECT id, nome AS name, preco AS price, categoria AS category, image, description FROM produtos ORDER BY categoria, nome")
     rows = cursor.fetchall()
@@ -411,7 +429,7 @@ def admin():
 
     # Se estiver logado → carrega produtos
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     cursor.execute("SELECT id, nome, preco, categoria, image, description FROM produtos ORDER BY id")
     prods = cursor.fetchall()
     cursor.close()
@@ -528,7 +546,7 @@ def admin_vendas():
         return redirect(url_for('admin'))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     cursor.execute("SELECT id, nome_cliente, endereco, bairro, telefone, total, forma_pagamento, status, observacoes, delivery_fee, data FROM pedidos ORDER BY data DESC")
     pedidos = cursor.fetchall()
     cursor.close()
@@ -539,7 +557,7 @@ def api_admin_vendas():
     if request.cookies.get('admin_auth') != '1':
         return jsonify({'ok': False, 'error': 'Acesso negado'}), 403
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     cursor.execute("SELECT id, nome_cliente, endereco, bairro, telefone, total, forma_pagamento, status, observacoes, delivery_fee, data FROM pedidos ORDER BY data DESC")
     pedidos = cursor.fetchall()
     cursor.close()
@@ -550,7 +568,7 @@ def admin_venda_itens(pedido_id):
     if request.cookies.get('admin_auth') != '1':
         return jsonify({'ok': False, 'error': 'Acesso negado'}), 403
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     cursor.execute(
         "SELECT ip.id, ip.produto_id, ip.quantidade, ip.preco_unitario, p.nome AS produto_nome "
         "FROM itens_pedido ip LEFT JOIN produtos p ON p.id = ip.produto_id WHERE ip.pedido_id = %s",
@@ -573,7 +591,7 @@ def gerar_nota(pedido_id):
         abort(403)
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     cursor.execute("SELECT * FROM pedidos WHERE id = %s", (pedido_id,))
     pedido = cursor.fetchone()
@@ -778,16 +796,13 @@ def api_delete_venda(pedido_id):
 # -----------------------------
 if __name__ == '__main__':
     try:
-        conn_test = mysql.connector.connect(
-            host=MYSQL_CONFIG['host'],
-            user=MYSQL_CONFIG['user'],
-            password=MYSQL_CONFIG['password'],
-            database=MYSQL_CONFIG['database'],
-            port=MYSQL_CONFIG['port']
-        )
-        conn_test.close()
+        conn_test = get_db()
+        cursor = conn_test.cursor()
+        cursor.execute("SELECT 1")
+        cursor.close()
+        print("Conectado ao Cloud SQL com sucesso.")
     except Exception as e:
-        print("Falha ao conectar ao MySQL:", str(e))
+        print("Falha ao conectar ao Cloud SQL:", str(e))
 
     _ensure_schema_on_start()
     port = int(os.environ.get("PORT", 5000))
