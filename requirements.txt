@@ -1,6 +1,7 @@
-Flask==2.3.2
+Flask
+gunicorn
 cloud-sql-python-connector
 pymysql
+python-dotenv
 reportlab
-Werkzeug
-gunicorn==21.2.0
+werkzeug
