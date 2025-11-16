@@ -24,12 +24,15 @@ from reportlab.pdfgen import canvas
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # MySQL (ajuste usuário/senha/host se necessário)
+
 MYSQL_CONFIG = {
+    # Garante que, se não encontrar a variável, o host seja None (ou um erro) e não caia em localhost
     'host': os.environ.get("MYSQLHOST"),
     'user': os.environ.get("MYSQLUSER"),
     'password': os.environ.get("MYSQLPASSWORD"),
     'database': os.environ.get("MYSQLDATABASE"),
-    'port': os.environ.get("MYSQLPORT")
+    # Converte a porta para inteiro, usando 5432 como fallback se não estiver definida
+    'port': int(os.environ.get("MYSQLPORT", 5432))
 }
 
 
@@ -791,6 +794,6 @@ if __name__ == '__main__':
     # CHAMAR A FUNÇÃO DE CRIAR/ATUALIZAR TABELAS AQUI
     _ensure_schema_on_start()
 
-    port = int(os.environ.get("PORT", 27279))
+    port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
 
