@@ -25,12 +25,13 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # MySQL (ajuste usuário/senha/host se necessário)
 MYSQL_CONFIG = {
-    'host': os.environ.get("mysql.railway.internal"),
-    'user': os.environ.get("root"),
-    'password': os.environ.get("CUItDqGpSPErzMCnpMEKnCnzQOHVCanK"),
-    'database': os.environ.get("railway"),
-    'port': os.environ.get("3306")
+    'host': os.environ.get("MYSQLHOST"),
+    'user': os.environ.get("MYSQLUSER"),
+    'password': os.environ.get("MYSQLPASSWORD"),
+    'database': os.environ.get("MYSQLDATABASE"),
+    'port': os.environ.get("MYSQLPORT")
 }
+
 
 UPLOAD_FOLDER_PRODUCTS = os.path.join(BASE_DIR, 'static', 'img')
 UPLOAD_FOLDER_PIX = os.path.join(BASE_DIR, 'static', 'pix_comprovantes')
