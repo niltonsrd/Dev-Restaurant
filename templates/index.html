@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dev Restaurante</title>
+
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+
+<body>
+    <div class="container">
+
+        <header>
+            <div class="brand">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" class="logo" alt="logo" />
+
+                <div>
+                    <h1>Dev Restaurante</h1>
+                    <p class="subtitle">Peça Online — Rápido e Fácil</p>
+                </div>
+            </div>
+
+            <div class="controls">
+                <a class="btn btn-primary" href="/admin">Área Administrativa</a>
+            </div>
+        </header>
+
+        <main>
+            <section>
+                <h2>Cardápio</h2>
+
+                <div class="filters" id="filter-container"></div>
+
+                <div class="catalog" id="catalog"></div>
+            </section>
+
+            <aside class="sidebar">
+                <h3>Seu Carrinho</h3>
+
+                <div id="cartList"></div>
+
+                <div class="cart-total">
+                    <div>Total</div>
+                    <div id="cartTotal">R$ 0,00</div>
+                </div>
+
+                <!-- Nome -->
+                <label for="customerName">Nome de quem recebe <span class="required">*</span></label>
+                <input id="customerName" placeholder="Nome de quem recebe" required />
+
+                <!-- CEP -->
+                <label for="inputCEP">CEP (Para cálculo da Taxa) <span class="required">*</span></label>
+                <input 
+                    id="inputCEP"
+                    placeholder="00000-000"
+                    type="text"
+                    maxlength="9"
+                    oninput="formatCEP(this)"
+                    required
+                />
+
+                <!-- Rua -->
+                <label for="customerStreet">Rua / Logradouro <span class="required">*</span></label>
+                <input 
+                    id="customerStreet"
+                    placeholder="Rua / Logradouro (Automático)"
+                    readonly
+                    required
+                />
+
+                <!-- Número -->
+                <label for="customerNumber">Número <span class="required">*</span></label>
+                <input 
+                    id="customerNumber"
+                    placeholder="Número"
+                    type="text"
+                    required
+                />
+
+                <!-- Referência -->
+                <label for="customerReference">Referência (Opcional)</label>
+                <input 
+                    id="customerReference"
+                    placeholder="Referência (Opcional)"
+                />
+
+                <input type="hidden" id="customerAddress" value="" />
+                <input type="hidden" id="customerBairro" name="bairro" value="" />
+
+                <!-- Contato -->
+                <label for="customerContact">Contato (WhatsApp) <span class="required">*</span></label>
+                <input id="customerContact" placeholder="Contato (WhatsApp)" required />
+
+                <input type="hidden" id="deliveryTaxInput" name="delivery_tax" value="0.00" />
+
+                <!-- Pagamento -->
+                <label for="paymentMethod">Método de Pagamento <span class="required">*</span></label>
+
+                <select id="paymentMethod" required>
+                    <option value="">Selecione</option>
+                    <option value="dinheiro">Dinheiro</option>
+                    <option value="cartao">Cartão</option>
+                    <option value="pix">Pix</option>
+                </select>
+
+                <!-- Pagamento - Dinheiro -->
+                <div id="paymentCashBox" class="hidden">
+                    <label>Precisa de troco?</label>
+
+                    <select id="cashNeedChange">
+                        <option value="nao">Não</option>
+                        <option value="sim">Sim</option>
+                    </select>
+
+                    <input
+                        type="text"
+                        id="cashAmount"
+                        class="hidden"
+                        placeholder="Troco para quanto?"
+                    />
+                </div>
+
+                <!-- Pagamento - Cartão -->
+                <div id="paymentCardBox" class="hidden pix-box">
+                    O motoboy leva a maquininha 💳
+                </div>
+
+                <!-- Pagamento - Pix -->
+                <div id="paymentPixBox" class="hidden pix-box">
+                    <p>Pague via PIX e envie o comprovante ⚡</p>
+
+                    <button class="btn" id="generatePixBtn">Gerar QR Code PIX</button>
+
+                    <div id="pixQrPreview" class="qr-preview hidden"></div>
+
+                    <label>Enviar comprovante:</label>
+
+                    <input type="file" id="pixComprovante" accept="image/*" />
+                </div>
+
+                <!-- Observação -->
+                <label for="customerNote">Observação</label>
+                <textarea
+                    id="customerNote"
+                    placeholder="Ex: tirar cebola, ponto da carne, etc"
+                    rows="3"
+                ></textarea>
+
+                <!-- Finalizar -->
+                <button id="btnCheckout" class="btn btn-accent" disabled>
+                    Finalizar pedido (WhatsApp)
+                </button>
+            </aside>
+        </main>
+
+        <footer>Desenvolvido por Nilton Santos — NTDEV</footer>
+    </div>
+
+    <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999"></div>
+
+    <div id="decisionModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>✅ Item Adicionado!</h3>
+            <p>O que você gostaria de fazer agora?</p>
+
+            <div class="modal-actions">
+                <button id="continueShoppingBtn" class="btn btn-secondary">
+                    Continuar Comprando
+                </button>
+
+                <button id="goToCartBtn" class="btn btn-accent">
+                    Ir para o Carrinho
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

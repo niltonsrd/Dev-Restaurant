@@ -1,0 +1,39 @@
+# Ambiente virtual
+venv/
+env/
+ENV/
+database/
+Include/
+Lib/
+Scripts/
+pyvenv.cfg
+
+# Banco de dados
+*.db
+
+# PDFs gerados e comprovantes
+static/notas/
+static/comprovantes/
+static/pix_comprovantes/
+uploads/
+
+# Arquivos temporários
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# Arquivos de migração / scripts internos
+criar_banco.py
+listar_sqlite.py
+migrar_dados.py
+migrar_sqlite_para_mysql.py
+
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db
+
+# Envs
+.env
+.env.*

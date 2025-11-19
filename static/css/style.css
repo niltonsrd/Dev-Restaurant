@@ -1,0 +1,853 @@
+:root {
+  /* Design System - Foco em Dark/Premium */
+  --primary: #ff3d00;
+  --primary-dark: #791f03;
+  --accent: #00c853;
+  --accent-dark: #008a38;
+
+  --bg-primary: #121212;
+  --bg-secondary: #1e1e1e;
+  --bg-tertiary: #2a2a2a;
+
+  --text-main: #ffffff;
+  --text-muted: #b3b3b3;
+
+  /* Espaçamentos e Geometria */
+  --space-xs: 6px;
+  --space-s: 8px;
+  --space-m: 12px;
+  --space-l: 24px;
+  --space-xl: 32px;
+
+  --radius-s: 8px;
+  --radius-m: 12px;
+
+  /* Sombras */
+  --shadow-m: 0 4px 15px rgba(0, 0, 0, 0.4);
+  --shadow-l: 0 8px 25px rgba(0, 0, 0, 0.6);
+
+  /* Fontes */
+  --font-size-base: 16px;
+  --font-size-h1: clamp(28px, 6vw, 42px);
+  --font-size-h2: clamp(24px, 5vw, 30px);
+  --font-size-h3: clamp(18px, 4vw, 24px);
+
+  /* Altura Fixa para Controles */
+  --qty-height: 40px;
+}
+
+.required {
+    color: red;
+    margin-left: 4px;
+    font-weight: bold;
+}
+
+
+/* RESET OTIMIZADO */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+}
+
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 3px solid rgba(255, 61, 0, 0.35);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+body {
+  font-family: "Poppins", Arial, sans-serif;
+  background:
+    linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)),
+    url("/static/img/background.jpg") center/cover fixed no-repeat;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  min-height: 100vh;
+  overscroll-behavior-y: none;
+  line-height: 1.6;
+  font-size: var(--font-size-base);
+}
+
+/* 💎 CONTAINER */
+.container {
+  /* largura responsiva: até 1180px, respeitando padding lateral */
+  max-width: min(1180px, calc(100% - 2 * var(--space-l)));
+  margin: var(--space-xl) auto;
+  padding: 0 var(--space-l);
+}
+
+/* ====================== HEADER E BOTÕES ====================== */
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-bottom: var(--space-m);
+  border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-m);
+}
+
+.logo {
+  width: 58px;
+  height: 58px;
+  object-fit: cover;
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-m);
+  display: block;
+}
+
+.title-group h1 {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-top: var(--space-xs);
+}
+
+/* 🕹️ BOTÕES E CONTROLES */
+
+.btn,
+.controls a,
+.controls button,
+.add-btn {
+  padding: var(--space-s) var(--space-m);
+  border-radius: var(--radius-m);
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.18s ease, transform 0.12s ease, box-shadow 0.12s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  line-height: 1.2;
+  background: var(--primary);
+  color: var(--text-main);
+}
+
+.btn:hover,
+.controls a:hover,
+.controls button:hover,
+.add-btn:hover {
+  background: var(--primary-dark);
+}
+
+/* --- ESTILO PRIMÁRIO (LARANJA) --- */
+.btn-primary {
+  background: var(--primary);
+  color: var(--text-main);
+}
+
+/* controles assumem estilo primário por padrão */
+.controls a,
+.controls button {
+  background: var(--primary);
+  color: var(--text-main);
+  border: none;
+}
+
+.btn-primary:hover,
+.controls a:hover,
+.controls button:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+}
+
+.btn-primary:active,
+.controls a:active,
+.controls button:active {
+  transform: translateY(0);
+  background: var(--primary-dark);
+}
+
+/* --- ESTILO SECUNDÁRIO (BORDADO) --- */
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-main);
+}
+
+/* --- ESTILO DE DESTAQUE (VERDE) --- */
+.btn-accent,
+.add-btn {
+  background: var(--accent);
+  color: var(--text-main);
+}
+
+.btn-accent:hover,
+.add-btn:hover {
+  background: var(--accent-dark);
+  transform: translateY(-2px);
+}
+
+.btn-accent:active,
+.add-btn:active {
+  transform: translateY(0);
+  background: var(--accent-dark);
+}
+
+/* --- ESTADO ATIVO (consistente) --- */
+.btn:active,
+.btn-primary:active,
+.btn-secondary:active,
+.controls a:active,
+.controls button:active {
+  transform: translateY(0);
+}
+
+/* ❌ ESTADO DESATIVADO */
+.btn[disabled],
+.btn:disabled,
+.btn-accent[disabled],
+.btn-accent:disabled {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-muted) !important;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+.btn[disabled]:hover,
+.btn:disabled:hover,
+.btn-accent[disabled]:hover,
+.btn-accent:disabled:hover {
+  background: var(--bg-tertiary) !important;
+  transform: none !important;
+  cursor: not-allowed;
+}
+
+/* ====================== LAYOUT PRINCIPAL E FILTROS ====================== */
+
+main {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(280px, 350px);
+  gap: var(--space-xl);
+  margin-top: var(--space-xl);
+}
+
+.filters {
+  margin-bottom: var(--space-m);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-s);
+}
+
+.filter-btn {
+  padding: var(--space-s) var(--space-m);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 9999px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.16s ease;
+  font-size: 14px;
+}
+
+.filter-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--bg-tertiary);
+  color: var(--text-main);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+  opacity: 0.95;
+}
+
+.filter-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-main);
+  font-weight: 600;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ====================== CATÁLOGO E CARDS (ALINHAMENTO) ====================== */
+
+.catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--space-l);
+  grid-auto-rows: 1fr;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  box-shadow: var(--shadow-m);
+  background-color: var(--bg-secondary);
+  border: 1px solid transparent;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-l);
+  border-color: var(--primary);
+}
+
+.card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: var(--radius-m) var(--radius-m) 0 0;
+  display: block;
+}
+
+.card-content {
+  padding: var(--space-m);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+  flex-grow: 1;
+}
+
+.card-name {
+  font-size: 18px;
+  line-height: 1.2;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.card-description {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: var(--space-xs) 0 0 0;
+}
+
+.card-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+}
+
+.price {
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--primary);
+  white-space: nowrap;
+  margin: 0;
+}
+
+/* ====================== CONTROLE DE QUANTIDADE ====================== */
+
+.qty-add-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-s);
+}
+
+.qty-container {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-s);
+  padding: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  height: var(--qty-height);
+}
+
+.qty-btn {
+  width: var(--qty-height);
+  height: var(--qty-height);
+  border: none;
+  background-color: transparent;
+  color: var(--primary);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 0;
+}
+
+.qty-btn:hover {
+  background-color: rgba(255, 61, 0, 0.12);
+  transform: none;
+}
+
+.qty-input {
+  min-width: 40px;
+  width: 40px;
+  height: var(--qty-height);
+  line-height: var(--qty-height);
+  text-align: center;
+  border: none;
+  font-size: 16px;
+  background: transparent;
+  color: var(--text-main);
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
+.qty-input::-webkit-inner-spin-button,
+.qty-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.qty-input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.add-btn {
+  font-weight: 600;
+  flex-grow: 1;
+  height: var(--qty-height);
+  min-height: var(--qty-height);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== Resumo do carrinho - Visual premium ===== */
+.totals-card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+  border: 1px solid rgba(255,255,255,0.03);
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  color: var(--text-main);
+  margin-bottom: 12px;
+}
+
+.totals-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.totals-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.icon {
+  width: 36px;
+  height: 36px;
+  display: inline-block;
+  flex: 0 0 36px;
+  padding: 6px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
+  box-shadow: inset 0 -2px 6px rgba(0,0,0,0.2);
+  color: var(--primary);
+}
+
+.totals-title {
+  font-weight: 600;
+  font-size: 0.95em;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.totals-sub {
+  font-size: 0.78em;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.totals-right {
+  font-weight: 700;
+  font-size: 0.95em;
+  color: var(--text-main);
+  min-width: 90px;
+  text-align: right;
+}
+
+/* Divider */
+.totals-divider {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  margin: 10px 0;
+  border-radius: 1px;
+}
+
+/* Final total */
+.totals-final {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 6px;
+  padding-bottom: 2px;
+}
+
+.final-left .final-label {
+  font-size: 1.05em;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.final-sub {
+  font-size: 0.75em;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.final-value {
+  font-size: 1.18em;
+  font-weight: 800;
+  color: var(--primary);
+  background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  padding: 6px 10px;
+  border-radius: 8px;
+  min-width: 110px;
+  text-align: right;
+}
+
+/* Hint */
+.totals-hint {
+  font-size: 0.72em;
+  color: var(--text-muted);
+  margin-top: 8px;
+  opacity: 0.9;
+}
+
+/* small screens adjustments */
+@media (max-width: 480px) {
+  .icon { width: 30px; height: 30px; flex: 0 0 30px; }
+  .totals-right, .final-value { min-width: 80px; font-size: 1em; }
+  .totals-card { padding: 10px; border-radius: 10px; }
+}
+
+
+
+
+/* ====================== MODAL DE DECISÃO ====================== */
+
+/* Fundo escuro que cobre toda a tela */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.28s ease, visibility 0.28s ease;
+}
+
+/* Estado Ativo do Modal */
+.modal-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Conteúdo do Modal */
+.modal-content {
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  padding: var(--space-xl);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-l);
+  max-width: 400px;
+  width: 90%;
+  transform: translateY(-50px);
+  transition: transform 0.3s ease;
+  text-align: center;
+}
+
+/* Efeito de entrada quando visível */
+.modal-overlay.visible .modal-content {
+  transform: translateY(0);
+}
+
+.modal-content h3 {
+  color: var(--accent);
+  margin-bottom: var(--space-s);
+  font-size: var(--font-size-h3);
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--space-m);
+  margin-top: var(--space-l);
+}
+
+.modal-actions .btn {
+  flex-grow: 1;
+}
+
+/* Responsividade básica para o modal */
+@media (max-width: 450px) {
+  .modal-actions {
+    flex-direction: column;
+    gap: var(--space-s);
+  }
+}
+
+/* Remove o Toast container já que não será mais usado */
+#toast-container {
+  display: none !important;
+}
+
+/* ====================== INPUTS E FORMS (AJUSTADO PARA NOVOS CAMPOS) ====================== */
+
+input,
+textarea,
+select {
+  width: 100%;
+  padding: var(--space-s) var(--space-m);
+  margin-top: var(--space-s);
+  border-radius: var(--radius-m);
+  border: 1px solid var(--bg-tertiary);
+  background: var(--bg-primary);
+  color: var(--text-main);
+  font-size: 16px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* Correção: garante espaçamento correto dentro da sidebar */
+.sidebar input:not([type="hidden"]),
+.sidebar textarea,
+.sidebar select {
+  margin-bottom: var(--space-s);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(255, 61, 0, 0.12);
+  outline: none;
+}
+
+/* Estilo para as labels dos novos campos */
+.sidebar label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* Ajusta o campo de nome para manter o espaçamento uniforme */
+#customerName {
+  margin-top: 0;
+}
+
+/* Oculta os fields hidden originais */
+#customerAddress,
+#customerBairro,
+.sidebar input[type="hidden"] {
+  display: none !important;
+  margin: 0 !important;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ====================== CARRINHO E PIX ====================== */
+
+.sidebar {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-m);
+  padding: var(--space-l);
+  border: 1px solid var(--bg-tertiary);
+  box-shadow: var(--shadow-m);
+  position: sticky;
+  top: var(--space-xl);
+  height: fit-content;
+}
+
+.sidebar h2,
+.sidebar h3 {
+  font-size: var(--font-size-h3);
+  margin-bottom: var(--space-m);
+  border-bottom: 1px solid var(--bg-tertiary);
+  padding-bottom: var(--space-s);
+}
+
+.cart-item {
+  display: flex;
+  gap: var(--space-m);
+  margin-bottom: var(--space-m);
+  padding-bottom: var(--space-s);
+  border-bottom: 1px dashed var(--bg-tertiary);
+}
+
+.item-thumb {
+  min-width: 60px;
+  height: 60px;
+  border-radius: var(--radius-s);
+  object-fit: cover;
+  display: block;
+}
+
+.item-details .name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.item-details .qty-price {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cart-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 18px;
+  font-weight: 700;
+  margin: var(--space-m) 0;
+  padding-top: var(--space-s);
+  border-top: 1px solid var(--bg-tertiary);
+}
+
+.pix-box {
+  background: rgba(0, 200, 83, 0.06);
+  border: 1px solid var(--accent-dark);
+  padding: var(--space-m);
+  border-radius: var(--radius-m);
+  margin-top: var(--space-m);
+  color: var(--text-main);
+}
+
+.qr-preview img {
+  width: 200px;
+  height: 200px;
+  border-radius: var(--radius-s);
+  display: block;
+  margin: 0 auto;
+  background: transparent !important;
+}
+
+/* ====================== FOOTER ====================== */
+
+footer {
+  margin-top: var(--space-xl);
+  text-align: center;
+  color: var(--text-muted);
+  padding: var(--space-m) 0;
+  font-size: 14px;
+}
+
+/* 📐 RESPONSIVIDADE FLUIDA (Refinada) 📐 */
+
+/* CORREÇÕES PARA TELAS MÉDIAS (TABLETS E ACIMA) */
+@media (max-width: 992px) {
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-m);
+  }
+
+  .brand {
+    width: 100%;
+  }
+
+  .controls {
+    width: 100%;
+    text-align: left;
+    margin-top: var(--space-s);
+  }
+
+  main {
+    grid-template-columns: 1fr;
+    gap: var(--space-xl);
+  }
+
+  .sidebar {
+    position: static; /* remove sticky em telas menores */
+    width: 100%;
+  }
+
+  .catalog {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-m);
+  }
+}
+
+/* CORREÇÕES PARA TELAS PEQUENAS (SMARTPHONES) */
+@media (max-width: 600px) {
+  .container {
+    margin: var(--space-l) auto;
+    padding: 0 var(--space-m);
+  }
+
+  .title-group h1 {
+    font-size: 20px;
+  }
+
+  .catalog {
+    grid-template-columns: 1fr;
+    gap: var(--space-m);
+  }
+
+  .card img {
+    height: 150px;
+  }
+
+  .qty-add-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-s);
+  }
+
+  .qty-container {
+    justify-content: space-between;
+    max-width: 200px;
+    align-self: center;
+  }
+
+  .add-btn {
+    min-height: 48px;
+    height: auto;
+  }
+}

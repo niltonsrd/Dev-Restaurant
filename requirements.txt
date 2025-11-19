@@ -1,0 +1,8 @@
+Flask
+python-dotenv
+waitress
+reportlab
+qrcode
+Pillow
+mysql-connector-python
+gunicorn
