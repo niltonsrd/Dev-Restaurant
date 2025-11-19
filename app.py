@@ -674,7 +674,7 @@ def gerar_nota(pedido_id):
     except:
         data_formatada = data_str
 
-    elementos.append(Paragraph(f"<b>Data Pedido:</b> {data_formatada}", estilo_texto))
+    elementos.append(Paragraph(f"<b>Pedido Recebido em:</b> {data_formatada}", estilo_texto))
     elementos.append(Paragraph(f"<b>Emitido em:</b> {datetime.now().strftime('%d/%m/%Y — %H:%M')}", estilo_texto))
     elementos.append(Paragraph(f"<b>Telefone:</b> {pedido.get('telefone') or '—'}", estilo_texto))
     elementos.append(Paragraph(f"<b>Endereço:</b> {pedido.get('endereco') or '—'}", estilo_texto))
