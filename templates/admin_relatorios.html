@@ -1,0 +1,108 @@
+{% extends "admin_layout.html" %} {% block title %}Relatórios de Vendas{%
+endblock %} {% block content %}
+<div class="container-fluid py-4">
+  <h2 class="mb-4">📊 Relatórios de Vendas</h2>
+
+  <div class="mb-4">
+    <button
+      class="btn btn-primary active"
+      id="btn-diario"
+      data-periodo="diario"
+    >
+      Hoje
+    </button>
+    <button
+      class="btn btn-outline-primary"
+      id="btn-semanal"
+      data-periodo="semanal"
+    >
+      Últimos 7 dias
+    </button>
+    <button
+      class="btn btn-outline-primary"
+      id="btn-mensal"
+      data-periodo="mensal"
+    >
+      Últimos 30 dias
+    </button>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6 col-xl-3 mb-4">
+      <div class="card shadow border-left-success py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div
+                class="text-xs font-weight-bold text-success text-uppercase mb-1"
+              >
+                Total Arrecadado (<span id="periodo-texto">Hoje</span>)
+              </div>
+              <div
+                class="h5 mb-0 font-weight-bold text-gray-800"
+                id="total-arrecadado"
+              >
+                Carregando...
+              </div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6 col-xl-3 mb-4">
+      <div class="card shadow border-left-info py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div
+                class="text-xs font-weight-bold text-info text-uppercase mb-1"
+              >
+                Total de Pedidos (<span id="periodo-texto-2">Hoje</span>)
+              </div>
+              <div
+                class="h5 mb-0 font-weight-bold text-gray-800"
+                id="total-vendas"
+              >
+                Carregando...
+              </div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-12">
+      <p class="text-muted" id="data-inicio-relatorio">
+        Dados a partir de: Carregando...
+      </p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-xl-8 col-lg-7">
+      <div class="card shadow mb-4">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">
+            Visão Geral dos Resultados
+          </h6>
+        </div>
+        <div class="card-body">
+          <p class="text-center text-muted">
+            Para adicionar um gráfico, você pode usar uma biblioteca como
+            Chart.js aqui.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/admin_relatorios.js') }}"></script>
+{% endblock %}

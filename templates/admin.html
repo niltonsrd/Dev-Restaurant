@@ -9,487 +9,10 @@
       href="{{ url_for('static', filename='favicon.ico') }}"
       type="image/x-icon"
     />
-
-    <style>
-      :root {
-        --primary: #ff3d00;
-        --primary-dark: #d83200;
-        --bg: #0f0f11;
-        --card: #141416;
-        --muted: #a8a8a8;
-        --radius: 12px;
-        --glass: rgba(255, 255, 255, 0.03);
-      }
-      * {
-        box-sizing: border-box;
-        font-family: Poppins, sans-serif;
-      }
-      body {
-        background: var(--bg);
-        color: #fff;
-        margin: 0;
-        padding: 22px;
-      }
-      header.top {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 18px;
-        flex-wrap: wrap;
-      }
-      h1 {
-        font-size: 20px;
-        margin: 0 0 6px 0;
-      }
-
-      textarea {
-        width: 100%;
-        min-height: 80px;
-        resize: vertical;
-        display: block;
-      }
-
-      .top-right {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-      }
-      .logout-btn {
-        background: #333;
-        padding: 9px 14px;
-        border-radius: 10px;
-        border: 1px solid #222;
-        color: #fff;
-        cursor: pointer;
-      }
-      .tabs {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 18px;
-        align-items: center;
-      }
-      .tab {
-        padding: 10px 14px;
-        border-radius: 10px;
-        background: var(--glass);
-        border: 1px solid rgba(255, 255, 255, 0.03);
-        cursor: pointer;
-        color: var(--muted);
-      }
-      .tab.active {
-        background: linear-gradient(
-          180deg,
-          var(--primary),
-          var(--primary-dark)
-        );
-        color: #fff;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
-      }
-      main {
-        display: grid;
-        grid-template-columns: 1fr 360px;
-        gap: 18px;
-      }
-      /* left column cards */
-      .card {
-        background: var(--card);
-        border-radius: 12px;
-        padding: 14px;
-        border: 1px solid rgba(255, 255, 255, 0.03);
-      }
-      .add-box {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      input,
-      select,
-      textarea {
-        background: #0d0d0d;
-        border: 1px solid #222;
-        padding: 10px;
-        border-radius: 8px;
-        color: #fff;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 14px;
-        margin-top: 14px;
-      }
-      .product-card {
-        display: flex;
-        flex-direction: column;
-        background: #0f0f10;
-        border-radius: 10px;
-        overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.02);
-      }
-      .product-card img {
-        width: 100%;
-        height: 150px;
-        object-fit: cover;
-        background: #111;
-      }
-      .product-body {
-        padding: 10px;
-      }
-      .card-actions {
-        display: flex;
-        gap: 8px;
-        padding: 8px;
-        border-top: 1px solid rgba(255, 255, 255, 0.03);
-      }
-      .btn {
-        background: var(--primary);
-        border: none;
-        padding: 10px 14px;
-        border-radius: 10px;
-        color: #fff;
-        cursor: pointer;
-      }
-      .btn.ghost {
-        background: transparent;
-        border: 1px solid rgba(255, 255, 255, 0.03);
-      }
-      .btn-danger {
-        background: #d63031;
-      }
-
-      /* right column (sidebar) */
-      aside.sidebar {
-        height: fit-content;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      /* vendas area */
-      .vendas-filters {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        align-items: center;
-        margin-bottom: 12px;
-      }
-      .table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      .table th,
-      .table td {
-        padding: 8px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-        text-align: left;
-        font-size: 14px;
-      }
-      .muted {
-        color: var(--muted);
-        font-size: 13px;
-      }
-      .status-pill {
-        padding: 6px 8px;
-        border-radius: 999px;
-        font-weight: 600;
-        font-size: 12px;
-      }
-      .status-pendente {
-        background: rgba(255, 193, 7, 0.12);
-        color: #ffc107;
-      }
-      .status-concluido {
-        background: rgba(76, 175, 80, 0.12);
-        color: #4caf50;
-      }
-      .status-entrega {
-        background: rgba(3, 169, 244, 0.08);
-        color: #03a9f4;
-      }
-
-      /* modal */
-      .modal-bg {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.6);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-      }
-      .modal {
-        background: var(--card);
-        padding: 18px;
-        border-radius: 12px;
-        max-width: 880px;
-        width: 100%;
-        border: 1px solid rgba(255, 255, 255, 0.03);
-      }
-      .modal .items {
-        max-height: 320px;
-        overflow: auto;
-        margin-top: 10px;
-      }
-      .modal .row {
-        display: flex;
-        justify-content: space-between;
-        padding: 8px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.02);
-      }
-      .small {
-        font-size: 13px;
-        color: var(--muted);
-      }
-
-      /* responsive */
-      @media (max-width: 980px) {
-        main {
-          grid-template-columns: 1fr;
-        }
-        aside.sidebar {
-          order: 2;
-        }
-      }
-
-      /* ====== MOBILE EXTRA ====== */
-
-      /* Telas até 768px — celulares */
-      @media (max-width: 768px) {
-        body {
-          padding: 14px;
-        }
-
-        header.top {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-
-        .top-right {
-          width: 100%;
-          justify-content: space-between;
-          flex-wrap: wrap;
-        }
-
-        .tabs {
-          width: 100%;
-          overflow-x: auto;
-          padding-bottom: 6px;
-        }
-
-        .tab {
-          flex-shrink: 0;
-        }
-
-        /* Grid principal vira 1 coluna */
-        main {
-          grid-template-columns: 1fr;
-        }
-
-        /* Sidebar desce */
-        aside.sidebar {
-          order: 2;
-        }
-
-        /* Cards mais fluidos */
-        .card {
-          padding: 12px;
-        }
-
-        /* Grid de produtos em 1 coluna */
-        .grid {
-          grid-template-columns: 1fr;
-        }
-
-        /* Imagem do produto menor */
-        .product-card img {
-          height: 130px;
-        }
-
-        /* Filtros de vendas ocupam a tela toda */
-        .vendas-filters {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-        }
-        .vendas-filters input,
-        .vendas-filters select {
-          width: 100%;
-        }
-
-        /* Botão Atualizar ocupa uma linha inteira */
-        .vendas-filters button {
-          grid-column: span 2;
-          width: 100%;
-        }
-
-        /* Tabela scroll horizontal no mobile */
-        table.table {
-          display: block;
-          overflow-x: auto;
-          white-space: nowrap;
-        }
-
-        /* Modal ocupa quase toda tela */
-        .modal {
-          max-width: 100%;
-          padding: 16px;
-        }
-
-        .modal .row {
-          flex-direction: column;
-          text-align: left;
-          gap: 4px;
-        }
-
-        #vendaTotals {
-          font-size: 14px;
-        }
-
-        /* Botões do modal empilhados */
-        #modalVendaInner > div:last-child {
-          flex-direction: column;
-        }
-
-        #modalVendaInner .btn {
-          width: 100%;
-        }
-      }
-
-      /* Telas muito pequenas (até 480px) */
-      @media (max-width: 480px) {
-        h1 {
-          font-size: 18px;
-        }
-
-        .tabs {
-          gap: 6px;
-        }
-
-        .tab {
-          padding: 8px 10px;
-          font-size: 14px;
-        }
-
-        .product-card img {
-          height: 110px;
-        }
-
-        .modal {
-          padding: 14px;
-        }
-
-        #vendaTotals {
-          font-size: 13px;
-        }
-      }
-
-      /* Alerta flutuante estilo iFood */
-      #newOrderAlert {
-        position: fixed;
-        right: 22px;
-        bottom: 22px;
-        background: linear-gradient(160deg, #ff0044, #c30034);
-        padding: 20px 26px;
-        border-radius: 16px;
-        color: #fff;
-        font-weight: 700;
-        font-size: 15px;
-        display: none;
-        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
-        animation: slideIn 0.4s ease-out;
-        cursor: pointer;
-        z-index: 99999;
-      }
-
-      @keyframes slideIn {
-        from {
-          transform: translateY(40px) scale(0.8);
-          opacity: 0;
-        }
-        to {
-          transform: translateY(0) scale(1);
-          opacity: 1;
-        }
-      }
-
-      /* Aba piscante */
-      .tab.notification-blink {
-        animation: blinkTab 1s infinite;
-      }
-
-      @keyframes blinkTab {
-        0%,
-        100% {
-          background-color: var(--bg-secondary);
-        }
-        50% {
-          background-color: #ffe5e5;
-        }
-      }
-
-      /* Favicon piscando */
-      @keyframes favicon-blink {
-        0%,
-        100% {
-          filter: brightness(1);
-        }
-        50% {
-          filter: brightness(2.5);
-        }
-      }
-
-      /* Modal estilo iFood (AJUSTADO PARA DARK MODE) */
-      #modalNovoPedido {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.7); /* Fundo mais escuro */
-        display: none;
-        justify-content: center;
-        align-items: center;
-        z-index: 100000;
-      }
-
-      #modalNovoPedido .box {
-        /* MUDANÇAS AQUI: */
-        background: var(--card); /* Usa a cor do seu card (escuro) */
-        color: #fff; /* Garante que o texto seja branco */
-        padding: 26px;
-        width: 380px;
-        border-radius: 18px;
-        text-align: center;
-        animation: zoom 0.3s ease;
-        border: 1px solid rgba(255, 255, 255, 0.1); /* Adiciona uma borda leve */
-      }
-
-      @keyframes zoom {
-        from {
-          transform: scale(0.65);
-          opacity: 0;
-        }
-        to {
-          transform: scale(1);
-          opacity: 1;
-        }
-      }
-
-      #modalNovoPedido button {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 12px;
-        font-size: 15px;
-        cursor: pointer;
-        margin-top: 12px;
-        background: var(--primary);
-        /* AJUSTE AQUI: Cor do texto no botão para melhor contraste no tema escuro */
-        color: #000;
-        font-weight: 700;
-        transition: background-color 0.2s;
-      }
-
-      #modalNovoPedido button:hover {
-        background: var(--primary-dark);
-      }
-    </style>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/admin.css') }}"
+    />
   </head>
 
   <body>
@@ -504,6 +27,7 @@
           <div class="tab active" data-tab="produtos">Produtos</div>
           <div class="tab" data-tab="vendas">Vendas</div>
           <div class="tab" data-tab="config">Configurações</div>
+          <div class="tab" data-tab="relatorios">Relatórios</div>
         </div>
 
         <form method="POST" action="/admin/logout" style="margin-left: 10px">
@@ -534,11 +58,10 @@
               />
               <select name="category" required>
                 <option value="">Categoria</option>
-                <option>Lanches</option>
-                <option>Bebidas</option>
-                <option>Pizzas</option>
-                <option>Porções</option>
-                <option>Doces</option>
+
+                {% for c in categorias %}
+                <option value="{{ c.name }}">{{ c.name }}</option>
+                {% endfor %}
               </select>
               <textarea name="description" placeholder="Descrição"></textarea>
               <input type="file" name="image" accept="image/*" />
@@ -634,7 +157,6 @@
               <option value="">Todos status</option>
               <option value="pendente">Pendente</option>
               <option value="concluido">Concluído</option>
-              <option value="entrega">Saiu para entrega</option>
             </select>
             <button class="btn" onclick="loadVendas()">Atualizar</button>
           </div>
@@ -652,10 +174,126 @@
                   <th>Ações</th>
                 </tr>
               </thead>
-              <tbody id="vendasBody">
-                </tbody>
+              <tbody id="vendasBody"></tbody>
             </table>
           </div>
+        </div>
+
+        <div id="relatorios" class="card" style="display: none">
+                   
+          <h2>📊 Relatórios de Vendas</h2>
+
+                             
+          <div class="mb-4" style="margin-bottom: 15px">
+                       
+            <button
+              class="btn btn-primary active"
+              id="btn-diario"
+              data-periodo="diario"
+            >
+                            Hoje            
+            </button>
+                       
+            <button class="btn ghost" id="btn-semanal" data-periodo="semanal">
+                            Últimos 7 dias            
+            </button>
+                       
+            <button class="btn ghost" id="btn-mensal" data-periodo="mensal">
+                            Últimos 30 dias            
+            </button>
+
+            <div style="margin-top: 20px; margin-bottom: 20px">
+              <button class="btn btn-danger" id="btn-download-pdf">
+                ⬇️ Baixar Relatório Detalhado em (CSV/Excel)
+              </button>
+            </div>
+                     
+          </div>
+                                     
+          <div
+            class="row-cards"
+            style="display: flex; gap: 15px; flex-wrap: wrap"
+          >
+                                   
+            <div
+              class="card shadow border-success py-2"
+              style="flex: 1; min-width: 250px; padding: 15px"
+            >
+                           
+              <div
+                class="text-xs font-weight-bold text-success text-uppercase mb-1"
+              >
+                                Total Arrecadado (<span id="periodo-texto"
+                  >Hoje</span
+                >)              
+              </div>
+                           
+              <div
+                class="h5 mb-0 font-weight-bold text-gray-800"
+                id="total-arrecadado"
+                style="font-size: 1.5em; font-weight: bold"
+              >
+                                Carregando...              
+              </div>
+                         
+            </div>
+                                           
+            <div
+              class="card shadow border-info py-2"
+              style="flex: 1; min-width: 250px; padding: 15px"
+            >
+                           
+              <div
+                class="text-xs font-weight-bold text-info text-uppercase mb-1"
+              >
+                                Total de Pedidos (<span id="periodo-texto-2"
+                  >Hoje</span
+                >)              
+              </div>
+                           
+              <div
+                class="h5 mb-0 font-weight-bold text-gray-800"
+                id="total-vendas"
+                style="font-size: 1.5em; font-weight: bold"
+              >
+                                Carregando...              
+              </div>
+                         
+            </div>
+                     
+          </div>
+                                     
+          <div style="margin-top: 15px">
+                       
+            <p class="muted" id="data-inicio-relatorio">
+              Dados a partir de: Carregando...
+            </p>
+                     
+          </div>
+                                       
+          <div class="card shadow mb-4" style="margin-top: 20px; padding: 15px">
+                       
+            <div class="card-header py-3">
+                           
+              <h4
+                class="m-0 font-weight-bold"
+                style="color: var(--main-color); margin-top: 0"
+              >
+                Visão Geral dos Resultados
+              </h4>
+                         
+            </div>
+                       
+            <div class="card-body">
+                           
+              <p class="text-center muted">
+                Espaço reservado para um futuro gráfico (ex: Chart.js).
+              </p>
+                         
+            </div>
+                     
+          </div>
+                 
         </div>
 
         <div id="config" class="card" style="display: none">
@@ -687,6 +325,61 @@
                 </button>
               </div>
             </form>
+            <div class="card" style="padding: 12px; margin-top: 18px">
+              <h3>Categorias de Produtos</h3>
+              <div class="muted">
+                Gerencie as categorias usadas nos produtos
+              </div>
+
+              <form
+                action="/admin/categories/add"
+                method="POST"
+                style="margin-top: 12px; display: flex; gap: 8px"
+              >
+                <input
+                  type="text"
+                  name="nome"
+                  placeholder="Nova categoria…"
+                  required
+                  style="flex: 1"
+                />
+                <button class="btn" type="submit">Adicionar</button>
+              </form>
+
+              <h4 style="margin-top: 16px">Categorias cadastradas</h4>
+
+              <ul style="list-style: none; padding-left: 0; margin-top: 10px">
+                {% for c in categorias %}
+                <li
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 6px 0;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                  "
+                >
+                  <span>{{ c.name }}</span>
+
+                  <form
+                    action="/admin/categories/delete/{{ c.id }}"
+                    method="POST"
+                    style="margin: 0"
+                  >
+                    <button
+                      class="btn btn-danger"
+                      style="padding: 6px 10px; font-size: 12px"
+                    >
+                      Excluir
+                    </button>
+                  </form>
+                </li>
+                {% else %}
+                <li style="color: #888; padding: 5px 0">
+                  Nenhuma categoria encontrada.
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
           </div>
         </div>
       </section>
@@ -731,12 +424,11 @@
             required
           />
           <select id="editCategory" name="category" required>
-            <option>Lanches</option>
-            <option>Bebidas</option>
-            <option>Pizzas</option>
-            <option>Porções</option>
-            <option>Doces</option>
+            {% for c in categorias %}
+            <option value="{{ c.name }}">{{ c.name }}</option>
+            {% endfor %}
           </select>
+
           <textarea id="editDescription" name="description"></textarea>
           <label style="margin-top: 10px">Nova imagem (opcional)</label>
           <input type="file" name="image" />
@@ -764,380 +456,7 @@
       </div>
     </div>
 
-    <script>
-      /* ---------- TAB CONTROLE ---------- */
-      const tabs = document.querySelectorAll(".tab");
-      function openTab(name) {
-        tabs.forEach((t) =>
-          t.classList.toggle("active", t.dataset.tab === name)
-        );
-        document.getElementById("produtos").style.display =
-          name === "produtos" ? "block" : "none";
-        document.getElementById("vendas").style.display =
-          name === "vendas" ? "block" : "none";
-        document.getElementById("config").style.display =
-          name === "config" ? "block" : "none";
-        if (name === "vendas") loadVendas();
-      }
-      tabs.forEach((t) =>
-        t.addEventListener("click", () => openTab(t.dataset.tab))
-      );
-
-      /* ---------- EDIT PRODUTO ---------- */
-      function openEdit(id, name, price, category, description) {
-        document.getElementById("modalEdit").style.display = "flex";
-        document.getElementById("editName").value = name;
-        document.getElementById("editPrice").value = price;
-        document.getElementById("editCategory").value = category;
-        document.getElementById("editDescription").value = description;
-        document.getElementById("editForm").action = "/admin/edit/" + id;
-      }
-      function closeEdit() {
-        document.getElementById("modalEdit").style.display = "none";
-      }
-
-      /* ---------- VENDAS (fetch) ---------- */
-      async function loadVendas() {
-        const qCliente = document
-          .getElementById("searchCliente")
-          .value.trim()
-          .toLowerCase();
-        const dateFrom = document.getElementById("dateFrom").value;
-        const dateTo = document.getElementById("dateTo").value;
-        const statusFilter = document.getElementById("filterStatus").value;
-
-        const res = await fetch("/admin/api/vendas");
-        if (!res.ok) {
-          alert("Erro ao carregar vendas");
-          return;
-        }
-        let data = await res.json();
-
-        // filtros simples (cliente/id/status/data)
-        data = data.filter((v) => {
-          if (qCliente) {
-            const s = (
-              String(v.nome_cliente || v.cliente || "") +
-              " " +
-              String(v.id)
-            ).toLowerCase();
-            if (!s.includes(qCliente)) return false;
-          }
-          if (
-            statusFilter &&
-            String(v.status || "").toLowerCase() !== statusFilter.toLowerCase()
-          )
-            return false;
-          if (dateFrom) {
-            const d = new Date(v.data);
-            if (d < new Date(dateFrom + "T00:00:00")) return false;
-          }
-          if (dateTo) {
-            const d = new Date(v.data);
-            if (d > new Date(dateTo + "T23:59:59")) return false;
-          }
-          return true;
-        });
-
-        const tbody = document.getElementById("vendasBody");
-        tbody.innerHTML = "";
-        data.forEach((v) => {
-          const tr = document.createElement("tr");
-          const status = (v.status || "pendente").toLowerCase();
-          let pillClass = "status-pendente";
-          if (status === "concluido" || status === "concluído")
-            pillClass = "status-concluido";
-          if (status === "entrega" || status === "saiu para entrega")
-            pillClass = "status-entrega";
-          tr.innerHTML = `
-          <td>${v.id}</td>
-          <td>${v.nome_cliente || v.cliente || "—"}</td>
-          <td>R$ ${parseFloat(v.total || 0).toFixed(2)}</td>
-          <td>${v.forma_pagamento || "—"}</td>
-          <td>${new Date(v.data).toLocaleString()}</td>
-          <td><span class="status-pill ${pillClass}">${status}</span></td>
-          <td>
-            <button class="btn ghost" onclick="viewVenda(${v.id})">Ver</button>
-            <button class="btn" onclick="downloadNota(${v.id})">Nota</button>
-            <button class="btn btn-danger" onclick="deleteVenda(${
-              v.id
-            })">Remover</button>
-          </td>
-        `;
-          tbody.appendChild(tr);
-        });
-
-        // resumo rápido
-        document.getElementById("resumo24").innerText =
-          data.length + " vendas listadas";
-      }
-
-      /* ---------- Detalhes da venda e ações ---------- */
-      async function viewVenda(id) {
-        // abrir modal e buscar itens
-        document.getElementById("modalVenda").style.display = "flex";
-        document.getElementById("vendaIdTitle").innerText = "#" + id;
-
-        // busca itens (produtos)
-        const resItens = await fetch(`/admin/vendas/${id}/itens`);
-        let itens = [];
-        if (!resItens.ok) {
-          document.getElementById("vendaItems").innerText =
-            "Erro ao carregar itens";
-        } else {
-          itens = await resItens.json();
-        }
-
-        const list = document.getElementById("vendaItems");
-        list.innerHTML = "";
-
-        // calcula subtotal
-        let subtotal = 0;
-        itens.forEach((it) => {
-          const row = document.createElement("div");
-          row.className = "row";
-          const nome = it.produto_nome || "ID " + it.produto_id;
-          const qtd = Number(it.quantidade || 0);
-          const preco = Number(it.preco_unitario || 0);
-          const totalItem = qtd * preco;
-          subtotal += totalItem;
-
-          row.innerHTML = `<div>${qtd}x ${nome}</div><div>R$ ${preco.toFixed(
-            2
-          )}</div>`;
-          list.appendChild(row);
-        });
-
-        // buscar info da venda (já retorna bairro e delivery_fee se ajustado no backend)
-        const all = await (await fetch("/admin/api/vendas")).json();
-        const venda = all.find((x) => x.id === id) || {};
-
-        // entrega/taxa (fallback 0)
-        const deliveryFee =
-          parseFloat(venda.delivery_fee || venda.tax || 0) || 0;
-        const totalFinal = subtotal + deliveryFee;
-
-        // montar texto de info com bairro e taxa
-        const tel = venda.telefone || venda.contato || "—";
-        const end = venda.endereco || "—";
-        const bairro = venda.bairro || "—";
-        const pagamento = venda.forma_pagamento || "—";
-
-        // mostrar info: cliente, telefone, endereço, bairro, subtotal, taxa e total
-        document.getElementById("vendaInfo").innerText = `Cliente: ${
-          venda.nome_cliente || venda.cliente || "—"
-        } • Tel: ${tel} • End.: ${end}`;
-
-        // adicionar resumo de totais logo abaixo (ou substitua vendaItems por novo bloco)
-        // vamos criar/atualizar um bloco de totais no modal (se já existir, usamos; se não, criamos)
-        let totalsEl = document.getElementById("vendaTotals");
-        if (!totalsEl) {
-          totalsEl = document.createElement("div");
-          totalsEl.id = "vendaTotals";
-          totalsEl.style.marginTop = "8px";
-          totalsEl.style.fontWeight = "700";
-          totalsEl.style.textAlign = "right";
-          document.getElementById("modalVendaInner").appendChild(totalsEl);
-        }
-        totalsEl.innerHTML = `
-    Subtotal: R$ ${subtotal.toFixed(2)}<br/>
-    Taxa de entrega: R$ ${deliveryFee.toFixed(2)}<br/>
-    <span style="font-size:15px">Total: R$ ${totalFinal.toFixed(2)}</span>
-  `;
-
-        // configurar botões
-        document.getElementById("btnDownloadNota").onclick = () =>
-          downloadNota(id);
-        document.getElementById("btnMarcar").onclick = () =>
-          marcarConcluido(id);
-      }
-
-      function closeVendaModal() {
-        document.getElementById("modalVenda").style.display = "none";
-      }
-
-      /* ---------- Baixar nota PDF (rota já existente) ---------- */
-      function downloadNota(id) {
-        // abre em nova aba para baixar (rota: /admin/vendas/<id>/nota)
-        window.open(`/admin/vendas/${id}/nota`, "_blank");
-      }
-
-      /* ---------- Marcar como concluído (chama rota que vamos adicionar) ---------- */
-      async function marcarConcluido(id) {
-        try {
-          const res = await fetch(`/admin/vendas/${id}/status`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "concluido" }),
-          });
-          if (!res.ok) throw new Error("Falha");
-          alert("Venda marcada como concluída");
-          loadVendas();
-          closeVendaModal();
-        } catch (e) {
-          alert("Erro ao marcar: " + e.message);
-        }
-      }
-
-      /* ---------- Deletar venda ---------- */
-      async function deleteVenda(id) {
-        if (!confirm("Remover venda ID " + id + " ?")) return;
-        try {
-          const res = await fetch(`/admin/vendas/${id}`, { method: "DELETE" });
-          if (!res.ok) throw new Error("Falha ao remover");
-          alert("Removido");
-          loadVendas();
-        } catch (e) {
-          alert("Erro: " + e.message);
-        }
-      }
-
-      /* ---------- Quick search do sidebar ---------- */
-      function quickSearch() {
-        const q = document
-          .getElementById("quickSearch")
-          .value.trim()
-          .toLowerCase();
-        document.getElementById("searchCliente").value = q;
-        openTab("vendas");
-        loadVendas();
-      }
-
-      /* ---------- Config (placeholder) ---------- */
-      function saveConfig() {
-        alert("Configurações salvas (placeholder).");
-      }
-
-      // inicia
-      (function init() {
-        // mantém aba Produtos visível por padrão (é o default)
-        openTab("produtos");
-      })();
-
-      // ====================================================
-      // CORREÇÃO: Usamos Jinja2 para pegar o último ID real
-      // ====================================================
-      let ultimoPedidoNotificado = Number("{{ max_id | default(0) }}");
-      
-      let faviconOriginal = "/static/favicon.ico";
-      let faviconTimer = null;
-
-      /* ---- 🔔 Push Notification ---- */
-      async function pedirPermissaoPush() {
-        if (Notification.permission !== "granted") {
-          await Notification.requestPermission();
-        }
-      }
-
-      /* ---- 🔥 Exibe Modal ---- */
-      function abrirVendasPorModal() {
-        document.getElementById("modalNovoPedido").style.display = "none";
-        openTab("vendas");
-        loadVendas();
-        pararBlinkAba();
-      }
-
-      /* ---- 🔔 Notificação do navegador ---- */
-      function enviarPush(pedido_id) {
-        if (Notification.permission === "granted") {
-          new Notification("📦 Novo Pedido!", {
-            body: `Pedido #${pedido_id} acabou de chegar.`,
-            icon: "/static/logo.png",
-          });
-        }
-      }
-
-      /* ---- 💡 Favicon piscando ---- */
-      function piscarFavicon() {
-        const link = document.querySelector("link[rel='icon']");
-        let bright = false;
-
-        faviconTimer = setInterval(() => {
-          link.style.filter = bright ? "brightness(1)" : "brightness(2.6)";
-          bright = !bright;
-        }, 600);
-      }
-
-      function pararBlinkFavicon() {
-        clearInterval(faviconTimer);
-        const link = document.querySelector("link[rel='icon']");
-        if(link) link.style.filter = "brightness(1)";
-      }
-
-      /* ---- 🎯 Aba piscando ---- */
-      function piscarAba() {
-        const tabVendas = document.querySelector("[data-tab='vendas']");
-        if(tabVendas) tabVendas.classList.add("notification-blink");
-      }
-
-      function pararBlinkAba() {
-        const tabVendas = document.querySelector("[data-tab='vendas']");
-        if(tabVendas) tabVendas.classList.remove("notification-blink");
-        pararBlinkFavicon();
-      }
-
-      /* ---- 🔥 Alerta flutuante ---- */
-      function mostrarAlertaNovoPedido(id) {
-        const box = document.getElementById("newOrderAlert");
-        box.innerText = `🔔 Novo pedido recebido! (#${id})`;
-        box.style.display = "block";
-
-        const audio = new Audio("/static/alert.mp3");
-        audio.volume = 0.7;
-        audio.play().catch(() => {});
-
-        box.onclick = () => {
-          abrirVendasPorModal();
-          box.style.display = "none";
-        };
-
-        setTimeout(() => {
-          box.style.display = "none";
-        }, 15000);
-      }
-
-      /* ---- 🧨 Exibir Modal ---- */
-      function mostrarModal(id) {
-        document.getElementById(
-          "pedidoModalTexto"
-        ).innerText = `O pedido #${id} acabou de chegar.`;
-        document.getElementById("modalNovoPedido").style.display = "flex";
-      }
-
-      /* ---- 🔄 Checagem com Backend ---- */
-      async function checarNovosPedidos() {
-        try {
-          const res = await fetch(
-            `/admin/api/novos-pedidos?ultimo=${ultimoPedidoNotificado}`
-          );
-          const data = await res.json();
-
-          if (data.novo) {
-            ultimoPedidoNotificado = data.pedido_id;
-
-            mostrarAlertaNovoPedido(data.pedido_id);
-            mostrarModal(data.pedido_id);
-            enviarPush(data.pedido_id);
-
-            piscarAba();
-            piscarFavicon();
-
-            if (
-              document.querySelector(".tab.active").dataset.tab === "vendas"
-            ) {
-              loadVendas();
-              pararBlinkAba();
-            }
-          }
-        } catch (e) {
-          console.warn("Erro ao verificar novos pedidos:", e);
-        }
-      }
-
-      setInterval(checarNovosPedidos, 4000);
-
-      // Solicitar permissão de push ao abrir admin
-      setTimeout(pedirPermissaoPush, 2000);
-    </script>
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/admin_relatorios.js') }}"></script>
   </body>
 </html>

@@ -11,30 +11,58 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
+    # ===========================
+    #  TABELA DE CATEGORIAS
+    # ===========================
+    c.execute('''
+    CREATE TABLE categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE
+    )
+    ''')
+
+    # categorias iniciais
+    initial_categories = [
+        ('Lanches',),
+        ('Acompanhamentos',),
+        ('Bebidas',),
+        ('Sobremesas',)
+    ]
+
+    c.executemany('INSERT INTO categories (name) VALUES (?)', initial_categories)
+
+    # ===========================
+    #  TABELA DE PRODUTOS
+    # ===========================
     c.execute('''
     CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         price REAL NOT NULL,
-        category TEXT,
+        category_id INTEGER,
         image TEXT NOT NULL,
-        description TEXT
+        description TEXT,
+        FOREIGN KEY (category_id) REFERENCES categories(id)
     )
     ''')
 
-    # produtos iniciais — as imagens devem existir em static/img/
+    # produtos iniciais — lembrando que image deve existir em static/img/
     products = [
-        ('X-Burger', 18.90, 'Lanches', 'burger.jpg', 'Hambúrguer com queijo, alface e tomate.'),
-        ('Pizza Calabresa', 42.00, 'Lanches', 'pizza.jpg', 'Pizza tradicional com calabresa.'),
-        ('Batata Frita', 15.00, 'Acompanhamentos', 'fries.jpg', 'Batatas crocantes.'),
-        ('Refrigerante Lata', 6.00, 'Bebidas', 'soda.jpg', 'Refrigerante 350ml em lata.')
+        ('X-Burger', 18.90, 1, 'burger.jpg', 'Hambúrguer com queijo, alface e tomate.'),
+        ('Pizza Calabresa', 42.00, 1, 'pizza.jpg', 'Pizza tradicional com calabresa.'),
+        ('Batata Frita', 15.00, 2, 'fries.jpg', 'Batatas crocantes.'),
+        ('Refrigerante Lata', 6.00, 3, 'soda.jpg', 'Refrigerante 350ml em lata.')
     ]
 
-    c.executemany('INSERT INTO products (name, price, category, image, description) VALUES (?, ?, ?, ?, ?)', products)
+    c.executemany(
+        'INSERT INTO products (name, price, category_id, image, description) VALUES (?, ?, ?, ?, ?)',
+        products
+    )
 
     conn.commit()
     conn.close()
     print("Banco criado em:", DB_PATH)
+
 
 if __name__ == '__main__':
     init_db()
