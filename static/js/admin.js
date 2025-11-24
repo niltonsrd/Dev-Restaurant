@@ -116,60 +116,87 @@ async function loadVendas() {
 }
 
 /* ---------- Detalhes da venda e ações ---------- */
+/* ----------------------------------------------
+   DETALHES DA VENDA (Modal)
+---------------------------------------------- */
 async function viewVenda(id) {
-    // abrir modal e buscar itens
     document.getElementById("modalVenda").style.display = "flex";
     document.getElementById("vendaIdTitle").innerText = "#" + id;
-
-    // busca itens (produtos)
-    const resItens = await fetch(`/admin/vendas/${id}/itens`);
-    let itens = [];
-    if (!resItens.ok) {
-        document.getElementById("vendaItems").innerText = "Erro ao carregar itens";
-    } else {
-        itens = await resItens.json();
-    }
 
     const list = document.getElementById("vendaItems");
     list.innerHTML = "";
 
-    // calcula subtotal
+    // 🔥 Buscar itens
+    const res = await fetch(`/admin/vendas/${id}/itens`);
+    const itens = res.ok ? await res.json() : [];
+
     let subtotal = 0;
+
     itens.forEach((it) => {
         const row = document.createElement("div");
         row.className = "row";
-        const nome = it.produto_nome || "ID " + it.produto_id;
+
+        let nome =
+            it.product_name ||
+            it.nome_produto ||
+            "Produto";
+
         const qtd = Number(it.quantidade || 0);
         const preco = Number(it.preco_unitario || 0);
         const totalItem = qtd * preco;
         subtotal += totalItem;
 
-        row.innerHTML = `<div>${qtd}x ${nome}</div><div>R$ ${preco.toFixed(
-            2
-        )}</div>`;
+        // 🔥 Converter opções
+        const opts = it.options || {};
+
+        // 🔥 Montar detalhes igual ao carrinho / nota fiscal
+        let detalhes = "";
+
+        // tamanho
+        if (opts.size && opts.size.name) {
+            const sp = Number(opts.size.extra_price || 0);
+            detalhes += ` • Tamanho: ${opts.size.name}`;
+            if (sp > 0) detalhes += ` (+R$ ${sp.toFixed(2)})`;
+        }
+
+        // ingredientes
+        if (Array.isArray(opts.ingredients) && opts.ingredients.length > 0) {
+            const listIng = opts.ingredients.map(i => i.name).join(", ");
+            detalhes += ` • Sabores: ${listIng}`;
+        }
+
+        // extras
+        if (Array.isArray(opts.extras) && opts.extras.length > 0) {
+            const exList = opts.extras
+                .map(e => `${e.name} (+R$ ${Number(e.price).toFixed(2)})`)
+                .join(", ");
+            detalhes += ` • Adicionais: ${exList}`;
+        }
+
+        row.innerHTML = `
+            <div>
+                <b>${qtd}x ${nome}</b>
+                <div class="small muted">${detalhes}</div>
+            </div>
+            <div>R$ ${preco.toFixed(2)}</div>
+        `;
+
         list.appendChild(row);
     });
 
-    // buscar info da venda (já retorna bairro e delivery_fee se ajustado no backend)
-    const all = await (await fetch("/admin/api/vendas")).json();
-    const venda = all.find((x) => x.id === id) || {};
+    // 🔥 Buscar informações extras da venda
+    const vendRes = await fetch("/admin/api/vendas");
+    const allVendas = vendRes.ok ? await vendRes.json() : [];
+    const venda = allVendas.find(v => v.id === id) || {};
 
-    // entrega/taxa (fallback 0)
-    const deliveryFee = parseFloat(venda.delivery_fee || venda.tax || 0) || 0;
+    const deliveryFee = parseFloat(venda.delivery_fee || 0);
     const totalFinal = subtotal + deliveryFee;
 
-    // montar texto de info com bairro e taxa
-    const tel = venda.telefone || venda.contato || "—";
-    const end = venda.endereco || "—";
-    const pagamento = venda.forma_pagamento || "—";
+    // Exibir info
+    document.getElementById("vendaInfo").innerText =
+        `Cliente: ${venda.nome_cliente || "—"} • Tel: ${venda.telefone || "—"} • End.: ${venda.endereco || "—"}`;
 
-    // mostrar info: cliente, telefone, endereço, bairro, subtotal, taxa e total
-    document.getElementById("vendaInfo").innerText = `Cliente: ${
-        venda.nome_cliente || venda.cliente || "—"
-    } • Tel: ${tel} • End.: ${end}`;
-
-    // adicionar resumo de totais logo abaixo (ou substitua vendaItems por novo bloco)
-    // vamos criar/atualizar um bloco de totais no modal (se já existir, usamos; se não, criamos)
+    // Totais
     let totalsEl = document.getElementById("vendaTotals");
     if (!totalsEl) {
         totalsEl = document.createElement("div");
@@ -179,16 +206,20 @@ async function viewVenda(id) {
         totalsEl.style.textAlign = "right";
         document.getElementById("modalVendaInner").appendChild(totalsEl);
     }
+
     totalsEl.innerHTML = `
         Subtotal: R$ ${subtotal.toFixed(2)}<br/>
         Taxa de entrega: R$ ${deliveryFee.toFixed(2)}<br/>
         <span style="font-size:15px">Total: R$ ${totalFinal.toFixed(2)}</span>
     `;
 
-    // configurar botões
+    // Ações
     document.getElementById("btnDownloadNota").onclick = () => downloadNota(id);
     document.getElementById("btnMarcar").onclick = () => marcarConcluido(id);
 }
+
+
+
 
 function closeVendaModal() {
     document.getElementById("modalVenda").style.display = "none";
@@ -406,6 +437,199 @@ async function checarNovosPedidos() {
         console.warn("Erro ao verificar novos pedidos:", e);
     }
 }
+
+      // mostra/oculta opções custom quando checkbox marcado
+      const cb = document.getElementById("customizableCB");
+      const customOptions = document.getElementById("customOptions");
+      if (cb)
+        cb.addEventListener("change", (e) => {
+          if (e.target.checked) customOptions.style.display = "block";
+          else customOptions.style.display = "none";
+        });
+      function hideCustomOptions() {
+        if (cb) {
+          cb.checked = false;
+          customOptions.style.display = "none";
+        }
+      }
+
+      // Adiciona campos dinâmicos
+      function addSizeField(name = "", extra = "") {
+        const div = document.createElement("div");
+        div.className = "section-inline";
+        div.innerHTML = `\
+          <input type="text" name="sizes_name[]" placeholder="Tamanho (Ex: Média)" value="${name}">\
+          <input type="number" name="sizes_extra[]" step="0.01" placeholder="Preço adicional" value="${extra}">\
+          <button type="button" class="mini-btn" onclick="this.parentElement.remove()">Remover</button>`;
+        document.getElementById("sizesContainer").appendChild(div);
+      }
+
+      function addIngredientField(name = "") {
+        const div = document.createElement("div");
+        div.className = "section-inline";
+        div.innerHTML = `\
+          <input type="text" name="ingredients_name[]" placeholder="Ingrediente (Ex: Queijo)" value="${name}">\
+          <button type="button" class="mini-btn" onclick="this.parentElement.remove()">Remover</button>`;
+        document.getElementById("ingredientsContainer").appendChild(div);
+      }
+
+      function addExtraField(name = "", price = "") {
+        const div = document.createElement("div");
+        div.className = "section-inline";
+        div.innerHTML = `\
+          <input type="text" name="extras_name[]" placeholder="Adicional (Ex: Bacon)" value="${name}">\
+          <input type="number" name="extras_price[]" step="0.01" placeholder="Preço" value="${price}">\
+          <button type="button" class="mini-btn" onclick="this.parentElement.remove()">Remover</button>`;
+        document.getElementById("extrasContainer").appendChild(div);
+      }
+
+/* ---------- GERENCIADOR COMPLETO (CORRIGIDO) ---------- */
+
+async function openVariations(id) {
+    document.getElementById("modalVariations").style.display = "flex";
+    document.getElementById("varProductId").innerText = id;
+
+    document.getElementById("listSizes").innerHTML = "Carregando...";
+    document.getElementById("listIngredients").innerHTML = "Carregando...";
+    document.getElementById("listExtras").innerHTML = "Carregando...";
+
+    await loadAllVariations(id);
+}
+
+function closeVariations() {
+    document.getElementById("modalVariations").style.display = "none";
+}
+
+
+async function loadAllVariations(id) {
+    const res = await fetch(`/admin/api/product/${id}/full_details`);
+    const data = await res.json();
+
+    renderListSizes(data.sizes);
+    renderListIngredients(data.ingredients);
+    renderListExtras(data.extras);
+}
+
+
+/* ====== Tamanhos ====== */
+
+function renderListSizes(items) {
+    const div = document.getElementById("listSizes");
+    div.innerHTML = "";
+
+    items.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "item-row";
+
+        row.innerHTML = `
+            <span>${item.name} — <strong>R$ ${item.extra_price.toFixed(2)}</strong></span>
+            <button class="btn btn-danger btn-small" onclick="deleteVariation('size', ${item.id})">x</button>
+        `;
+
+        div.appendChild(row);
+    });
+}
+
+/* ====== Ingredientes ====== */
+
+function renderListIngredients(items) {
+    const div = document.getElementById("listIngredients");
+    div.innerHTML = "";
+
+    items.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "item-row";
+
+        row.innerHTML = `
+            <span>${item.name}</span>
+            <button class="btn btn-danger btn-small" onclick="deleteVariation('ingredient', ${item.id})">x</button>
+        `;
+        div.appendChild(row);
+    });
+}
+
+
+/* ====== Extras ====== */
+
+function renderListExtras(items) {
+    const div = document.getElementById("listExtras");
+    div.innerHTML = "";
+
+    items.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "item-row";
+
+        row.innerHTML = `
+            <span>${item.name} — <strong>R$ ${item.price.toFixed(2)}</strong></span>
+            <button class="btn btn-danger btn-small" onclick="deleteVariation('extra', ${item.id})">x</button>
+        `;
+        div.appendChild(row);
+    });
+}
+
+
+/* ====== ADICIONAR ====== */
+async function addVariation(type) {
+    const prodId = document.getElementById("varProductId").innerText;
+    let url = "";
+    let body = {};
+
+    if (type === "size") {
+        const name = document.getElementById("inSizeName").value.trim();
+        const price = parseFloat(document.getElementById("inSizePrice").value || 0);
+
+        if (!name) return;
+
+        url = `/admin/api/product/${prodId}/sizes`;
+        body = { nome: name, preco: price };
+    }
+
+    if (type === "ingredient") {
+        const name = document.getElementById("inIngName").value.trim();
+        if (!name) return;
+
+        url = `/admin/api/product/${prodId}/ingredient`;
+        body = { nome: name };
+    }
+
+    if (type === "extra") {
+        const name = document.getElementById("inExtraName").value.trim();
+        const price = parseFloat(document.getElementById("inExtraPrice").value || 0);
+        if (!name) return;
+
+        url = `/admin/api/product/${prodId}/extra`;
+        body = { nome: name, price: price };
+    }
+
+    await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+
+    // Limpa inputs
+    document.querySelectorAll(".input-group input").forEach(el => el.value = "");
+
+    loadAllVariations(prodId);
+}
+
+
+/* ====== REMOVER ====== */
+async function deleteVariation(type, idItem) {
+    if (!confirm("Confirmar remoção?")) return;
+
+    const prodId = document.getElementById("varProductId").innerText;
+
+    let url = "";
+    if (type === "size") url = `/admin/api/size/${idItem}`;
+    if (type === "ingredient") url = `/admin/api/ingredient/${idItem}`;
+    if (type === "extra") url = `/admin/api/extra/${idItem}`;
+
+    await fetch(url, { method: "DELETE" });
+
+    loadAllVariations(prodId);
+}
+
 
 
 // ====================================================

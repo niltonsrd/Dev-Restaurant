@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gerenciar Tamanhos – Admin</title>
+
+    <link
+      rel="icon"
+      href="{{ url_for('static', filename='favicon.ico') }}"
+      type="image/x-icon"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/admin.css') }}"
+    />
+  </head>
+
+  <body>
+    <header class="top">
+      <div>
+        <h1>Painel Administrativo — Dev Restaurante</h1>
+        <div class="muted">Gerenciar Tamanhos de Produtos</div>
+      </div>
+
+      <div class="top-right">
+        <div class="tabs" id="tabs">
+          <a href="/admin" class="tab">Produtos</a>
+          <a href="/admin#vendas" class="tab">Vendas</a>
+          <a href="/admin#config" class="tab">Configurações</a>
+          <a href="/admin#relatorios" class="tab">Relatórios</a>
+          <div class="tab active">Tamanhos</div>
+        </div>
+
+        <form method="POST" action="/admin/logout" style="margin-left: 10px">
+          <button class="logout-btn">Sair</button>
+        </form>
+      </div>
+    </header>
+
+    <main>
+      <section id="content-area">
+        <div class="card">
+          <h2>Gerenciar Tamanhos</h2>
+
+          <div class="add-box card">
+            <h3>Adicionar Novo Tamanho</h3>
+            <form action="/admin/sizes/add" method="POST" id="formAddSize">
+              <div style="display: flex; gap: 8px">
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Ex.: Pequena, Média, Grande"
+                  required
+                />
+                <input
+                  type="number"
+                  name="extra_price"
+                  placeholder="Preço adicional (ex.: 5.00)"
+                  step="0.01"
+                  required
+                />
+              </div>
+
+              <button class="btn" type="submit" style="margin-top: 10px">
+                Adicionar
+              </button>
+            </form>
+          </div>
+
+          <h3 style="margin-top: 20px">Tamanhos Cadastrados</h3>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Tamanho</th>
+                <th>Preço adicional</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in sizes %}
+              <tr>
+                <td>{{ s.id }}</td>
+                <td>{{ s.name }}</td>
+                <td>R$ {{ "%.2f"|format(s.extra_price) }}</td>
+                <td>
+                  <button
+                    class="btn ghost"
+                    data-id="{{ s.id }}"
+                    data-name="{{ s.name }}"
+                    data-price="{{ s.extra_price }}"
+                    onclick="openEditSize(this.dataset.id, this.dataset.name, this.dataset.price)"
+                  >
+                    Editar
+                  </button>
+                  <form
+                    action="/admin/sizes/delete/{{ s.id }}"
+                    method="POST"
+                    style="display: inline"
+                  >
+                    <button
+                      class="btn btn-danger"
+                      onclick="return confirm('Excluir este tamanho?')"
+                    >
+                      Excluir
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td
+                  colspan="4"
+                  style="text-align: center; padding: 10px"
+                  class="muted"
+                >
+                  Nenhum tamanho cadastrado.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="sidebar">
+        <div class="card">
+          <h3>Navegação</h3>
+          <a href="/admin" class="btn">Voltar ao Admin</a>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Modal de edição -->
+    <div class="modal-bg" id="modalEditSize" style="display: none">
+      <div class="modal">
+        <h3>Editar Tamanho</h3>
+        <form id="editSizeForm" method="POST">
+          <label>Nome do tamanho</label>
+          <input type="text" id="editSizeName" name="name" required />
+
+          <label>Preço adicional</label>
+          <input
+            type="number"
+            id="editSizePrice"
+            name="extra_price"
+            step="0.01"
+            required
+          />
+
+          <div style="display: flex; gap: 8px; margin-top: 12px">
+            <button class="btn" type="submit">Salvar</button>
+            <button
+              class="btn btn-danger"
+              type="button"
+              onclick="closeEditSize()"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      function openEditSize(id, name, price) {
+        document.getElementById("modalEditSize").style.display = "flex";
+        document.getElementById("editSizeName").value = name;
+        document.getElementById("editSizePrice").value = price;
+
+        document.getElementById(
+          "editSizeForm"
+        ).action = `/admin/sizes/edit/${id}`;
+      }
+
+      function closeEditSize() {
+        document.getElementById("modalEditSize").style.display = "none";
+      }
+    </script>
+  </body>
+</html>

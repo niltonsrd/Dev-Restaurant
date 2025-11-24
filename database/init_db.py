@@ -31,6 +31,14 @@ def init_db():
 
     c.executemany('INSERT INTO categories (name) VALUES (?)', initial_categories)
 
+    c.execute('''CREATE TABLE IF NOT EXISTS product_sizes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    size_name TEXT NOT NULL,
+    extra_price REAL DEFAULT 0,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);''')
+
     # ===========================
     #  TABELA DE PRODUTOS
     # ===========================

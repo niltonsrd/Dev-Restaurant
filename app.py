@@ -4,6 +4,7 @@ import sqlite3
 import traceback
 import csv
 import io
+import json
 # 🟢 CORREÇÃO NAS IMPORTS: Mantenha timedelta e timezone
 from datetime import datetime, timezone, timedelta 
 from flask import (
@@ -125,6 +126,15 @@ def init_db():
             FOREIGN KEY(pedido_id) REFERENCES pedidos(id)
         )
     ''')
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS sizes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER,
+            name TEXT NOT NULL,
+            FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE
+        )
+    ''')
     conn.commit()
 
     # 2. Lógica de Migração Anti-Duplicação
@@ -218,6 +228,41 @@ def get_category_id_by_name(db, name):
         cur.execute("SELECT id FROM categories WHERE name = ?", (name,))
         rr = cur.fetchone()
         return rr['id'] if rr else None
+    
+def montar_descricao_item(options_json):
+        """
+        Converte opções JSON (size, ingredients, extras) em texto humanizado.
+        Para itens não personalizáveis, retorna string vazia.
+        """
+        if not options_json:
+            return ""
+    
+        # Garantir que é JSON válido
+        try:
+            opts = json.loads(options_json) if isinstance(options_json, str) else options_json
+        except:
+            return ""
+    
+        partes = []
+    
+        # Tamanho
+        if opts.get("size") and opts["size"].get("name"):
+            partes.append(f"Tamanho: {opts['size']['name']}")
+    
+        # Ingredientes
+        if opts.get("ingredients"):
+            ingredientes = ", ".join(i.get("name") for i in opts["ingredients"])
+            partes.append(f"Sabores: {ingredientes}")
+
+        # Extras
+        if opts.get("extras"):
+            extras = ", ".join(
+                f"{e.get('name')} (+R$ {float(e.get('price',0)):.2f})"
+                for e in opts["extras"]
+            )
+            partes.append(f"Adicionais: {extras}")
+    
+        return " | ".join(partes)    
 
 # -----------------------
 # ROTAS PÚBLICAS / API
@@ -230,15 +275,24 @@ def index():
 def api_products():
     db = get_db()
     cur = db.cursor()
-    # Retorna o campo 'category' como nome (compatível com seu script.js)
+
     cur.execute("""
-        SELECT p.id, p.name, p.price, COALESCE(c.name, '') AS category, p.image, p.description
+        SELECT 
+            p.id,
+            p.name,
+            p.price,
+            COALESCE(c.name, '') AS category,
+            p.image,
+            p.description,
+            p.customizable
         FROM products p
         LEFT JOIN categories c ON c.id = p.category_id
         ORDER BY c.name, p.name
     """)
+
     rows = cur.fetchall()
     results = []
+
     for r in rows:
         results.append({
             'id': r['id'],
@@ -246,9 +300,12 @@ def api_products():
             'price': float(r['price'] or 0),
             'category': r['category'],
             'image': r['image'] or '',
-            'description': r['description'] or ''
+            'description': r['description'] or '',
+            'customizable': int(r['customizable'] or 0)  # <-- IMPORTANTE
         })
+
     return jsonify(results)
+
 
 @app.route('/api/categories')
 def api_categories():
@@ -270,116 +327,168 @@ def api_categories_full():
     cats = [{'id': r['id'], 'name': r['name']} for r in rows]
     return jsonify(cats)
 
+# ================================
+# ROTA PÚBLICA - DETALHES DE PRODUTO
+# Permite que o cliente veja tamanhos, ingredientes e extras
+# ================================
+
+
+
 # Delivery fees hardcoded (mantive sua lógica existente)
-@app.route('/api/delivery-fees')
-def api_delivery_fees():
-    TAXAS = {
-        'Bairro da Paz': 5.00,
-        'Itapoã': 8.00,
-        'Pituaçu': 7.00,
-        'São Cristovão': 6.00,
-        'Mussurunga': 6.00,
-        # Zona Sul removida da API, mas mantida no checkout
-        'Outro': 10.00
-    }
-    return jsonify(TAXAS)
+delivery_fee = 5.00  # Valor fixo para taxa de entrega
 
 # -----------------------
 # CHECKOUT
 # -----------------------
 @app.route('/api/checkout', methods=['POST'])
 def api_checkout():
-    import json
+    import json, traceback
     data = request.form
 
-    customer_name = data.get('customer_name') or data.get('customerName') or data.get('name') or ''
-    customer_address = data.get('customer_address') or data.get('customerAddress') or data.get('address') or ''
-    customer_contact = data.get('customer_contact') or data.get('customerContact') or ''
-    customer_note = data.get('customer_note') or data.get('customerNote') or ''
+    # ------------------------------
+    #   CAMPOS DO CLIENTE
+    # ------------------------------
+    customer_name = (data.get('customer_name') or data.get('customerName') or data.get('name') or '').strip()
+    customer_address = (data.get('customer_address') or data.get('customerAddress') or data.get('address') or '').strip()
+    customer_contact = (data.get('customer_contact') or data.get('customerContact') or '').strip()
+    customer_note = (data.get('customer_note') or data.get('customerNote') or '').strip()
     customer_bairro = (data.get('customer_bairro') or data.get('customerBairro') or data.get('bairro') or '').strip()
-    payment_method = (data.get('payment_method') or data.get('paymentMethod') or '').strip()
-    troco_para = (data.get('troco_para') or data.get('trocoPara') or '').strip()
-    delivery_override = data.get('delivery_tax') or data.get('deliveryTax')
 
+    payment_method = (data.get('payment_method') or data.get('paymentMethod') or '').strip().lower()
+    troco_para = (data.get('troco_para') or data.get('trocoPara') or '').strip()
+    delivery_override = data.get('delivery_tax') or data.get('deliveryTax') or data.get('delivery_fee') or None
+
+    # ------------------------------
+    #   CARRINHO
+    # ------------------------------
     cart_json = data.get('cart') or data.get('cart_json') or data.get('carrinho') or '[]'
+
     try:
         cart = json.loads(cart_json)
-    except Exception:
+        if not isinstance(cart, list):
+            cart = []
+    except:
         cart = []
 
     if not customer_name or not customer_address or not cart:
-        return jsonify({'ok': False, 'error': 'Preencha todos os campos obrigatórios.'}), 400
+        return jsonify({'ok': False, 'error': 'Preencha nome, endereço e itens.'}), 400
 
-    TAXAS = {
-        'Bairro da Paz': 5.00,
-        'Itapoã': 8.00,
-        'Pituaçu': 7.00,
-        'São Cristovão': 6.00,
-        'Mussurunga': 6.00,
-        'Zona Sul': 12.00, # Mantido no cálculo do checkout
-        'Outro': 10.00
-    }
-    delivery_fee = TAXAS.get(customer_bairro, TAXAS['Outro'])
-    
-    if delivery_override:
-        try:
-            delivery_fee = float(delivery_override)
-        except ValueError:
-            pass
+    # ------------------------------
+    #   FRETE
+    # ------------------------------
+    try:
+        delivery_fee = float(str(delivery_override).replace(",", ".")) if delivery_override else 0.0
+    except:
+        delivery_fee = 0.0
 
-    # Comprovante PIX
+    # ------------------------------
+    #   PIX - UPLOAD
+    # ------------------------------
     pix_filename = None
     pix_url = None
-    if (payment_method or '').lower() == "pix" and 'pix_comprovante' in request.files:
-        file = request.files['pix_comprovante']
-        if file:
-            filename = save_image_file(file)
-            if filename:
-                pix_filename = filename
-                base = SERVER_URL.rstrip('/') if SERVER_URL else request.host_url.rstrip('/')
-                pix_url = f"{base}/pix/{pix_filename}"
-            else:
-                return jsonify({'ok': False, 'error': 'Arquivo do comprovante inválido.'}), 400
 
-    # Mensagem WhatsApp (sem alterações necessárias)
+    try:
+        if payment_method == "pix" and 'pix_comprovante' in request.files:
+            file = request.files['pix_comprovante']
+            if file:
+                filename = save_image_file(file)
+                if filename:
+                    pix_filename = filename
+                    base = (SERVER_URL.rstrip('/') if globals().get('SERVER_URL') else request.host_url.rstrip('/'))
+                    pix_url = f"{base}/pix/{pix_filename}"
+    except:
+        traceback.print_exc()
+
+    # ------------------------------
+    #   MONTAR TEXTO WHATSAPP (MODELO B)
+    # ------------------------------
     lines = []
     lines.append("🧾 *Pedido - Dev Restaurante*")
     lines.append(f"👤 Cliente: {customer_name}")
     lines.append(f"📍 Endereço: {customer_address}")
-    # ... (Restante da montagem da mensagem do WhatsApp)
-
-    if customer_contact:
-        lines.append(f"📞 Contato: {customer_contact}")
-    if customer_note:
-        lines.append(f"📝 Obs: {customer_note}")
+    if customer_bairro: lines.append(f"🏙️ Bairro: {customer_bairro}")
+    if customer_contact: lines.append(f"📞 Contato: {customer_contact}")
+    if customer_note: lines.append(f"📝 Obs: {customer_note}")
     lines.append("")
-    lines.append(f"💳 *Pagamento:* {payment_method or '—'}")
+    lines.append(f"💳 *Pagamento:* {payment_method.capitalize()}")
 
-    if payment_method.lower() == "dinheiro" and troco_para:
-        raw = ''.join(ch for ch in troco_para if (ch.isdigit() or ch in ',.'))
-        raw = raw.replace(',', '.')
+    if payment_method == "dinheiro" and troco_para:
         try:
-            troco_val = float(raw)
-            lines.append(f"Troco para: R$ {troco_val:.2f}")
-        except Exception:
+            v = float(troco_para.replace(",", "."))
+            lines.append(f"Troco para: R$ {v:.2f}")
+        except:
             lines.append(f"Troco para: {troco_para}")
 
-    if payment_method.lower() == "pix":
+    if payment_method == "pix":
         lines.append("💠 PIX enviado ✔")
 
     lines.append("")
     lines.append("🍔 *Itens:*")
+    lines.append("")
 
     total_items = 0.0
-    for it in cart:
-        name = it.get('name') or it.get('nome') or 'Item'
-        qty = int(it.get('qty') or it.get('qtd') or it.get('quantity') or 1)
-        price = float(it.get('price') or it.get('preco') or 0.0)
-        subtotal = qty * price
-        total_items += subtotal
-        lines.append(f"- {qty}x {name} — R$ {subtotal:.2f}")
 
-    lines.append("")
+    # ------------------------------
+    #   LOOP DOS ITENS
+    # ------------------------------
+    for it in cart:
+
+        name = it.get("name") or "Item"
+        qty = int(it.get("qty") or 1)
+
+        # preço final do item
+        try:
+            price = float(str(it.get("unit_price")).replace(",", "."))
+        except:
+            price = 0.0
+
+        subtotal = price * qty
+        total_items += subtotal
+
+        # opções
+        opts = it.get("options") or {}
+        if isinstance(opts, str):
+            try: opts = json.loads(opts)
+            except: opts = {}
+
+        base_price = float(it.get("base_price") or 0)
+
+        # ---- MODELO B ----
+        lines.append(f"🍕 *{name}*")
+        lines.append(f"• Preço base: *R$ {base_price:.2f}*")
+
+        # tamanho
+        size = opts.get("size")
+        if size:
+            sname = size.get("name")
+            sextra = float(size.get("extra_price") or 0)
+            if sextra > 0:
+                lines.append(f"• Tamanho: {sname} (+R$ {sextra:.2f})")
+            else:
+                lines.append(f"• Tamanho: {sname}")
+
+        # ingredientes
+        ingredients = opts.get("ingredients") or []
+        if ingredients:
+            ing_list = ", ".join(i.get("name") for i in ingredients)
+            lines.append(f"• Sabores: {ing_list}")
+
+        # extras
+        extras = opts.get("extras") or []
+        if extras:
+            lines.append("• Adicionais:")
+            for ex in extras:
+                en = ex.get("name")
+                ep = float(ex.get("price") or 0)
+                lines.append(f"   - {en} (+R$ {ep:.2f})")
+
+        # total do item
+        lines.append(f"➡ *Total do item:* R$ {subtotal:.2f}")
+        lines.append("")
+
+    # ------------------------------
+    #   TOTAL + ENTREGA
+    # ------------------------------
     lines.append(f"🚚 Entrega: R$ {delivery_fee:.2f}")
 
     total_final = total_items + delivery_fee
@@ -392,64 +501,79 @@ def api_checkout():
     lines.append("")
     lines.append("📨 Pedido enviado via site Dev Restaurante.")
 
+    # formatar para URL
     text = "%0A".join(lines)
     whatsapp_url = f"https://api.whatsapp.com/send?phone={RESTAURANT_PHONE}&text={text}"
 
-    # Salvar pedido no DB
-    db = None
+    # ------------------------------
+    #   SALVAR PEDIDO NO BANCO
+    # ------------------------------
     try:
         db = get_db()
         cur = db.cursor()
-        
-        # 🟢 CORREÇÃO DO FUSO HORÁRIO APLICADA: 
-        # Usa a função utilitária now_br()
-        now = now_br().strftime('%Y-%m-%d %H:%M:%S') 
-        # ----------------------------------------
-        
-        insert_pedido = """
+
+        now = now_br().strftime("%Y-%m-%d %H:%M:%S")
+
+        cur.execute("""
             INSERT INTO pedidos 
-            (nome_cliente, endereco, bairro, total, data, telefone, forma_pagamento, status, observacoes, delivery_fee) 
+            (nome_cliente, endereco, bairro, total, data, telefone, forma_pagamento, status, observacoes, delivery_fee)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        cur.execute(insert_pedido, (
-            customer_name,
-            customer_address,
-            customer_bairro,
-            total_final,
-            now,
-            customer_contact,
-            payment_method,
-            'pendente',
-            customer_note,
-            delivery_fee
+        """, (
+            customer_name, customer_address, customer_bairro,
+            total_final, now, customer_contact,
+            payment_method, "pendente", customer_note, delivery_fee
         ))
+
         pedido_id = cur.lastrowid
 
-        insert_item = "INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, preco_unitario) VALUES (?, ?, ?, ?)"
+        # SALVAR ITENS
         for it in cart:
-            produto_id = None
+            produto_id = int(it.get("product_id") or 0)
+            qty = int(it.get("qty") or 1)
+
             try:
-                produto_id = int(it.get('id') or it.get('product_id') or it.get('produto_id') or 0)
-            except Exception:
-                produto_id = 0
-            qty = int(it.get('qty') or it.get('qtd') or it.get('quantity') or 1)
-            price = float(it.get('price') or it.get('preco') or 0.0)
-            cur.execute(insert_item, (pedido_id, produto_id, qty, price))
+                price = float(str(it.get("unit_price")).replace(",", "."))
+            except:
+                price = 0.0
+
+            opts_json = json.dumps(it.get("options") or {}, ensure_ascii=False)
+
+            cur.execute("""
+                INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, preco_unitario, options, name)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                pedido_id,
+                produto_id,
+                qty,
+                price,
+                opts_json,
+                it.get("name")
+            ))
+
         db.commit()
+
     except Exception as e:
         traceback.print_exc()
-        if db:
-            db.rollback()
-        return jsonify({'ok': False, 'error': f'Erro ao salvar pedido: {str(e)}'}), 500
+        return jsonify({
+            'ok': False,
+            'error': f'Erro ao salvar pedido: {str(e)}'
+        }), 500
 
+    # ------------------------------
+    #   RETORNO FINAL
+    # ------------------------------
     return jsonify({
         'ok': True,
         'whatsapp_url': whatsapp_url,
+        'pedido_id': pedido_id,
         'pix_file': pix_filename,
         'pix_url': pix_url,
-        'pedido_id': pedido_id,
         'total': f"{total_final:.2f}"
     })
+
+
+
+
 
 @app.route('/pix/<filename>')
 def get_pix_file(filename):
@@ -524,17 +648,19 @@ def admin_add():
         flash("Acesso negado", "error")
         return redirect(url_for('admin'))
 
+    # 1. Dados básicos do produto
     name = request.form.get('name')
     price = request.form.get('price') or 0
-    # category may be a name or id
     category_val = request.form.get('category')
     description = request.form.get('description')
     file = request.files.get('image')
 
+    customizable = 1 if request.form.get('customizable') == '1' else 0
+
     db = get_db()
     cur = db.cursor()
 
-    # Tratamento da categoria: aceitar id ou nome
+    # 2. Categoria
     cat_id = None
     if category_val:
         try:
@@ -542,21 +668,289 @@ def admin_add():
         except Exception:
             cat_id = get_category_id_by_name(db, category_val.strip())
 
+    # 3. Imagem
     filename = None
     if file and allowed_file(file.filename):
         filename = save_image_file(file)
 
     try:
+        # 4. Insere o produto principal
         cur.execute("""
-            INSERT INTO products (name, price, category_id, image, description)
-            VALUES (?, ?, ?, ?, ?)
-        """, (name, price, cat_id, filename, description))
+            INSERT INTO products (name, price, category_id, image, description, customizable)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (name, price, cat_id, filename, description, customizable))
+
+        product_id = cur.lastrowid
+
+        # ============================================================
+        # 🔥 SALVAR TAMANHOS (tamanho + extra_price)
+        # tamanhos_name[]  | tamanhos_extra[]
+        # ============================================================
+        sizes_name = request.form.getlist("sizes_name[]")
+        sizes_extra = request.form.getlist("sizes_extra[]")
+
+        for nome, extra in zip(sizes_name, sizes_extra):
+            if nome.strip():
+                cur.execute("""
+                    INSERT INTO sizes (product_id, name, extra_price)
+                    VALUES (?, ?, ?)
+                """, (product_id, nome.strip(), float(extra or 0)))
+
+        # ============================================================
+        # 🟢 SALVAR INGREDIENTES (ingredients_name[])
+        # ============================================================
+        ingredients_name = request.form.getlist("ingredients_name[]")
+
+        for ing in ingredients_name:
+            if ing.strip():
+                cur.execute("""
+                    INSERT INTO product_ingredients (product_id, name)
+                    VALUES (?, ?)
+                """, (product_id, ing.strip()))
+
+        # ============================================================
+        # 🔵 SALVAR EXTRAS (extras_name[] | extras_price[])
+        # ============================================================
+        extras_name = request.form.getlist("extras_name[]")
+        extras_price = request.form.getlist("extras_price[]")
+
+        for nome, preco in zip(extras_name, extras_price):
+            if nome.strip():
+                cur.execute("""
+                    INSERT INTO product_extras (product_id, name, price)
+                    VALUES (?, ?, ?)
+                """, (product_id, nome.strip(), float(preco or 0)))
+
         db.commit()
-        flash("Produto adicionado!", "success")
+        flash("Produto completo adicionado com sucesso!", "success")
+
     except Exception as e:
         db.rollback()
+        print("Erro ao criar produto:", e)
         flash(f"Erro ao adicionar produto: {e}", "error")
+
     return redirect(url_for('admin'))
+
+
+# --- API PARA O MODAL COMPLETO (Tamanhos, Ingredientes, Adicionais) ---
+
+# 1. Rota que busca TUDO de um produto para preencher o modal
+@app.route("/api/product/<int:product_id>/details")
+def api_product_details(product_id):
+    conn = get_db_connection()
+
+    # Tamanhos
+    sizes = conn.execute("""
+        SELECT id, name, extra_price
+        FROM sizes
+        WHERE product_id = ?
+    """, (product_id,)).fetchall()
+
+    # Ingredientes (correção aqui ↓↓↓↓)
+    ingredients = conn.execute("""
+        SELECT id, name
+        FROM product_ingredients
+        WHERE product_id = ?
+    """, (product_id,)).fetchall()
+
+    ingredients_list = [
+        {"id": i["id"], "name": i["name"], "price": 0}
+        for i in ingredients
+    ]
+
+    # Extras
+    extras = conn.execute("""
+        SELECT id, name, price
+        FROM product_extras
+        WHERE product_id = ?
+    """, (product_id,)).fetchall()
+
+    conn.close()
+
+    return jsonify({
+        "sizes": [dict(s) for s in sizes],
+        "ingredients": ingredients_list,
+        "extras": [dict(e) for e in extras]
+    })
+
+
+# 2. Rotas para Adicionar/Remover INGREDIENTES
+@app.route('/admin/api/product/<int:id>/ingredient', methods=['POST'])
+def api_add_ingredient(id):
+    data = request.get_json()
+    nome = data.get('nome')
+    if not nome: return jsonify({'error': 'Nome obrigatório'}), 400
+    
+    db = get_db()
+    db.execute("INSERT INTO product_ingredients (product_id, name) VALUES (?, ?)", (id, nome))
+    db.commit()
+    return jsonify({'message': 'OK'})
+
+@app.route('/admin/api/ingredient/<int:id>', methods=['DELETE'])
+def api_delete_ingredient(id):
+    db = get_db()
+    db.execute("DELETE FROM product_ingredients WHERE id = ?", (id,))
+    db.commit()
+    return jsonify({'message': 'OK'})
+
+# 3. Rotas para Adicionar/Remover ADICIONAIS (EXTRAS)
+@app.route('/admin/api/product/<int:id>/extra', methods=['POST'])
+def api_add_extra(id):
+    data = request.get_json()
+    nome = data.get('nome')
+    price = data.get('price') or 0
+    if not nome: return jsonify({'error': 'Nome obrigatório'}), 400
+    
+    db = get_db()
+    db.execute("INSERT INTO product_extras (product_id, name, price) VALUES (?, ?, ?)", (id, nome, price))
+    db.commit()
+    return jsonify({'message': 'OK'})
+
+@app.route('/admin/api/extra/<int:id>', methods=['DELETE'])
+def api_delete_extra(id):
+    db = get_db()
+    db.execute("DELETE FROM product_extras WHERE id = ?", (id,))
+    db.commit()
+    return jsonify({'message': 'OK'})
+
+# Rota para LISTAR e ADICIONAR tamanhos via Javascript
+@app.route('/admin/api/product/<int:id>/sizes', methods=['GET', 'POST'])
+def api_manage_sizes(id):
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("SELECT id FROM products WHERE id = ?", (id,))
+    if not cur.fetchone():
+        return jsonify({'error': 'Produto não encontrado'}), 404
+
+    if request.method == 'POST':
+        data = request.get_json()
+        nome_tamanho = data.get('nome')
+        preco_extra = data.get('preco', 0)
+
+        if not nome_tamanho:
+            return jsonify({'error': 'Nome é obrigatório'}), 400
+
+        try:
+            cur.execute("""
+                INSERT INTO sizes (product_id, name, extra_price)
+                VALUES (?, ?, ?)
+            """, (id, nome_tamanho, preco_extra))
+
+            db.commit()
+            return jsonify({'message': 'Tamanho adicionado!'})
+        except Exception as e:
+            db.rollback()
+            return jsonify({'error': str(e)}), 500
+
+    cur.execute("SELECT id, name, extra_price FROM sizes WHERE product_id = ?", (id,))
+    rows = cur.fetchall()
+
+    tamanhos = [
+        {'id': r['id'], 'nome': r['name'], 'preco': r['extra_price']}
+        for r in rows
+    ]
+    return jsonify(tamanhos)
+
+@app.route("/api/product/<int:id>/details")
+def public_product_details(id):
+    db = get_db()
+    cur = db.cursor()
+
+    # Produto
+    cur.execute("""
+        SELECT id, name, price, image, description, customizable
+        FROM products WHERE id = ?
+    """, (id,))
+    prod = cur.fetchone()
+    if not prod:
+        return jsonify({"error": "Produto não encontrado"}), 404
+
+    # -------------------------
+    # Tamanhos (com extra_price)
+    # -------------------------
+    cur.execute("""
+        SELECT id, name, extra_price
+        FROM sizes
+        WHERE product_id = ?
+    """, (id,))
+    sizes = [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "extra_price": float(row["extra_price"] or 0)
+        }
+        for row in cur.fetchall()
+    ]
+
+    # -------------------------
+    # Ingredientes (SEM preço)
+    # Junta product_ingredients -> ingredients
+    # -------------------------
+    cur.execute("""
+        SELECT pi.id AS id, ing.name AS name
+        FROM product_ingredients pi
+        JOIN ingredients ing ON ing.id = pi.ingredient_id
+        WHERE pi.product_id = ?
+    """, (id,))
+    ingredients = [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "price": 0.0   # ingredientes não têm preço
+        }
+        for row in cur.fetchall()
+    ]
+
+    # -------------------------
+    # Extras (com preço)
+    # -------------------------
+    cur.execute("""
+        SELECT id, name, price
+        FROM product_extras
+        WHERE product_id = ?
+    """, (id,))
+    extras = [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "price": float(row["price"] or 0)
+        }
+        for row in cur.fetchall()
+    ]
+
+    # -------------------------
+    # Retorno final
+    # -------------------------
+    return jsonify({
+        "product": {
+            "id": prod["id"],
+            "name": prod["name"],
+            "price": float(prod["price"]),
+            "image": prod["image"],
+            "description": prod["description"],
+            "customizable": prod["customizable"]
+        },
+        "sizes": sizes,
+        "ingredients": ingredients,
+        "extras": extras
+    })
+
+
+
+
+
+@app.route('/admin/api/size/<int:id_tamanho>', methods=['DELETE'])
+def api_delete_size(id_tamanho):
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute("DELETE FROM sizes WHERE id = ?", (id_tamanho,))
+        db.commit()
+        return jsonify({'message': 'Removido'})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/edit/<int:id>', methods=['POST'])
 def admin_edit(id):
@@ -601,6 +995,67 @@ def admin_edit(id):
 
     return redirect(url_for('admin'))
 
+@app.route("/admin/api/product/<int:id>/full_details", methods=["GET"])
+def admin_api_full_details(id):
+    db = get_db()
+    cur = db.cursor()
+
+    # Verifica se o produto existe
+    cur.execute("SELECT id FROM products WHERE id = ?", (id,))
+    if not cur.fetchone():
+        return jsonify({"error": "Produto não encontrado"}), 404
+
+    # ---- LISTAR TAMANHOS ----
+    cur.execute("""
+        SELECT id, name, extra_price
+        FROM sizes
+        WHERE product_id = ?
+    """, (id,))
+    sizes = [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "extra_price": row["extra_price"]
+        }
+        for row in cur.fetchall()
+    ]
+
+    # ---- LISTAR INGREDIENTES ----
+    cur.execute("""
+        SELECT id, name
+        FROM product_ingredients
+        WHERE product_id = ?
+    """, (id,))
+    ingredients = [
+        {
+            "id": row["id"],
+            "name": row["name"]
+        }
+        for row in cur.fetchall()
+    ]
+
+    # ---- LISTAR EXTRAS ----
+    cur.execute("""
+        SELECT id, name, price
+        FROM product_extras
+        WHERE product_id = ?
+    """, (id,))
+    extras = [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "price": row["price"]
+        }
+        for row in cur.fetchall()
+    ]
+
+    return jsonify({
+        "sizes": sizes,
+        "ingredients": ingredients,
+        "extras": extras
+    })
+
+
 @app.route('/admin/delete/<int:id>', methods=['POST'])
 def admin_delete(id):
     if request.cookies.get('admin_auth') != '1':
@@ -642,6 +1097,7 @@ def admin_add_category():
         flash(f"Erro ao criar categoria: {e}", "error")
 
     return redirect(url_for('admin'))
+
 
 @app.route('/admin/categories/delete/<int:cat_id>', methods=['POST'])
 def admin_delete_category(cat_id):
@@ -874,8 +1330,16 @@ def api_admin_venda_detail(pedido_id):
     db = get_db()
     cur = db.cursor()
     cur.execute("""
-        SELECT id, nome_cliente, endereco, bairro, telefone, total, forma_pagamento, status, observacoes, delivery_fee, data 
-        FROM pedidos WHERE id = ?
+        SELECT 
+            ip.produto_id,
+            ip.name AS nome_produto,
+            ip.quantidade,
+            ip.preco_unitario,
+            ip.options,
+            p.name AS product_name
+        FROM itens_pedido ip
+        LEFT JOIN products p ON p.id = ip.produto_id
+        WHERE ip.pedido_id = ?
     """, (pedido_id,))
     row = cur.fetchone()
     if not row:
@@ -886,39 +1350,140 @@ def api_admin_venda_detail(pedido_id):
 def admin_venda_itens(pedido_id):
     if request.cookies.get('admin_auth') != '1':
         return jsonify({'ok': False, 'error': 'Acesso negado'}), 403
+
     db = get_db()
     cur = db.cursor()
+
     cur.execute("""
-        SELECT ip.id, ip.produto_id, ip.quantidade, ip.preco_unitario, p.name AS produto_nome
-        FROM itens_pedido ip LEFT JOIN products p ON p.id = ip.produto_id
+        SELECT 
+            ip.produto_id,
+            ip.name AS nome_produto,
+            ip.quantidade,
+            ip.preco_unitario,
+            ip.options,
+            p.name AS product_name
+        FROM itens_pedido ip
+        LEFT JOIN products p ON p.id = ip.produto_id
         WHERE ip.pedido_id = ?
     """, (pedido_id,))
+
     rows = cur.fetchall()
-    itens = [dict(r) for r in rows]
+
+    itens = []
+    for r in rows:
+        row = dict(r)
+
+        # converter JSON de opções
+        try:
+            row["options"] = json.loads(row.get("options") or "{}")
+        except:
+            row["options"] = {}
+
+        itens.append(row)
+
     return jsonify(itens)
+
+
+
 
 @app.route('/admin/vendas/<int:pedido_id>/nota')
 def gerar_nota(pedido_id):
     if request.cookies.get('admin_auth') != '1':
         abort(403)
+
+    import json
+    from datetime import datetime
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+
+    # ===============================
+    # Função auxiliar: igual modal
+    # ===============================
+    def montar_descricao_item(options_raw):
+        try:
+            if isinstance(options_raw, str):
+                options = json.loads(options_raw)
+            else:
+                options = options_raw or {}
+        except:
+            options = {}
+
+        linhas = []
+
+        # Tamanho
+        size = options.get("size") or {}
+        if size:
+            n = size.get("name") or size.get("nome") or ""
+            p = float(size.get("extra_price") or size.get("price") or 0)
+            if p > 0:
+                linhas.append(f"Tamanho: {n} (+R$ {p:.2f})")
+            else:
+                linhas.append(f"Tamanho: {n}")
+
+        # Ingredientes
+        ingredientes = options.get("ingredients") or []
+        if ingredientes:
+            nomes = []
+            for ig in ingredientes:
+                if isinstance(ig, dict):
+                    nomes.append(ig.get("name") or ig.get("nome") or "")
+                else:
+                    nomes.append(str(ig))
+            if nomes:
+                linhas.append("Sabores: " + ", ".join(nomes))
+
+        # Adicionais
+        extras = options.get("extras") or []
+        if extras:
+            parts = []
+            for ex in extras:
+                if isinstance(ex, dict):
+                    n = ex.get("name") or ""
+                    p = float(str(ex.get("price") or 0).replace(",", "."))
+                    parts.append(f"{n} (+R$ {p:.2f})")
+                else:
+                    parts.append(str(ex))
+            if parts:
+                linhas.append("Adicionais: " + ", ".join(parts))
+
+        return "<br/>".join(linhas)
+
+    # ===============================
+    # Buscar pedido
+    # ===============================
     db = get_db()
     cur = db.cursor()
     cur.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,))
     pedido_row = cur.fetchone()
     if not pedido_row:
         abort(404)
+
     pedido = dict(pedido_row)
 
+    # ===============================
+    # Buscar itens do pedido
+    # Agora trazendo ip.nome_produto CORRETAMENTE
+    # ===============================
     cur.execute("""
-        SELECT ip.produto_id, ip.quantidade, ip.preco_unitario, p.name AS produto_nome
+        SELECT 
+            ip.produto_id,
+            ip.name AS nome_produto,
+            ip.quantidade,
+            ip.preco_unitario,
+            ip.options,
+            p.name AS product_name
         FROM itens_pedido ip
         LEFT JOIN products p ON p.id = ip.produto_id
         WHERE ip.pedido_id = ?
     """, (pedido_id,))
-    rows_itens = cur.fetchall()
-    itens = [dict(r) for r in rows_itens]
 
-    # Geração PDF térmico (mantido do seu código)
+    itens = [dict(r) for r in cur.fetchall()]
+
+    # ===============================
+    # Criar PDF
+    # ===============================
     filename = f"nota_{pedido_id}.pdf"
     filepath = os.path.join(app.config['NOTAS_FOLDER'], filename)
 
@@ -929,11 +1494,14 @@ def gerar_nota(pedido_id):
     )
 
     styles = getSampleStyleSheet()
-    estilo_titulo = ParagraphStyle('Titulo', parent=styles['Normal'], fontSize=12, alignment=TA_CENTER, spaceAfter=6, textColor=colors.black)
-    estilo_texto = ParagraphStyle('Texto', parent=styles['Normal'], fontSize=8, leading=10)
-    estilo_negrito = ParagraphStyle('Negrito', parent=styles['Normal'], fontSize=8, leading=10, spaceAfter=4, textColor=colors.black)
+    estilo_titulo = ParagraphStyle('Titulo', parent=styles['Normal'], fontSize=12, alignment=TA_CENTER)
+    estilo_texto = ParagraphStyle('Texto', parent=styles['Normal'], fontSize=8)
+    estilo_negrito = ParagraphStyle('Negrito', parent=styles['Normal'], fontSize=8)
+    estilo_item = ParagraphStyle('Item', parent=styles['Normal'], fontSize=7.5, leading=9)
 
     elementos = []
+
+    # Logo
     logo_path = os.path.join("static", "img", "logo.png")
     if os.path.exists(logo_path):
         img = Image(logo_path, width=60, height=60)
@@ -941,43 +1509,64 @@ def gerar_nota(pedido_id):
         elementos.append(img)
         elementos.append(Spacer(1, 4))
 
+    # Cabeçalho
     elementos.append(Paragraph("<b>DEV RESTAURANTE</b>", estilo_titulo))
     elementos.append(Paragraph("CNPJ: 00.000.000/0001-00", estilo_texto))
     elementos.append(Paragraph("Endereço: Rua Exemplo, 123 - Centro", estilo_texto))
     elementos.append(Paragraph("Tel: (71) 99999-0000", estilo_texto))
     elementos.append(Spacer(1, 10))
 
+    # Infos pedido
     elementos.append(Paragraph(f"<b>Pedido Nº:</b> {pedido_id}", estilo_negrito))
-    elementos.append(Paragraph(f"<b>Cliente:</b> {pedido['nome_cliente']}", estilo_texto))
+    elementos.append(Paragraph(f"<b>Cliente:</b> {pedido.get('nome_cliente','—')}", estilo_texto))
 
-    data_str = pedido['data']
+    # Data
     try:
-        dt_obj = datetime.strptime(data_str, '%Y-%m-%d %H:%M:%S')
-        data_formatada = dt_obj.strftime("%d/%m/%Y — %H:%M")
+        dt = datetime.strptime(pedido.get("data",""), "%Y-%m-%d %H:%M:%S")
+        data_pedido = dt.strftime("%d/%m/%Y — %H:%M")
     except:
-        data_formatada = data_str
+        data_pedido = pedido.get("data","")
 
-    elementos.append(Paragraph(f"<b>Data Pedido:</b> {now_br().strftime('%d/%m/%Y — %H:%M:%S')}", estilo_texto))
-    # 🟢 CORREÇÃO AQUI: Usa a função now_br() para a hora de emissão da nota
+    elementos.append(Paragraph(f"<b>Data Pedido:</b> {data_pedido}", estilo_texto))
     elementos.append(Paragraph(f"<b>Emitido em:</b> {now_br().strftime('%d/%m/%Y — %H:%M:%S')}", estilo_texto))
-    elementos.append(Paragraph(f"<b>Telefone:</b> {pedido.get('telefone') or '—'}", estilo_texto))
-    elementos.append(Paragraph(f"<b>Endereço:</b> {pedido.get('endereco') or '—'}", estilo_texto))
-    elementos.append(Paragraph(f"<b>Pagamento:</b> {pedido.get('forma_pagamento') or '—'}", estilo_texto))
+    elementos.append(Paragraph(f"<b>Telefone:</b> {pedido.get('telefone','—')}", estilo_texto))
+    elementos.append(Paragraph(f"<b>Endereço:</b> {pedido.get('endereco','—')}", estilo_texto))
+    elementos.append(Paragraph(f"<b>Pagamento:</b> {pedido.get('forma_pagamento','—')}", estilo_texto))
 
     if pedido.get("observacoes"):
         elementos.append(Paragraph(f"<b>Obs:</b> {pedido['observacoes']}", estilo_texto))
 
     elementos.append(Spacer(1, 10))
 
+    # ===============================
+    # Tabela de itens
+    # ===============================
     tabela_dados = [["QTD", "ITEM", "UNIT", "TOTAL"]]
     subtotal = 0
+
     for it in itens:
-        nome_item = it.get('produto_nome') or 'Item'
-        qtd = it['quantidade']
-        preco = float(it['preco_unitario'])
+        # nome sempre correto
+        nome = it.get("nome_produto") or it.get("product_name") or "Item"
+
+        qtd = it["quantidade"]
+        preco = float(it["preco_unitario"])
         total = preco * qtd
+
+        descricao_html = montar_descricao_item(it.get("options"))
+
+        if descricao_html:
+            item_paragraph = Paragraph(f"<b>{nome}</b><br/>{descricao_html}", estilo_item)
+        else:
+            item_paragraph = Paragraph(f"<b>{nome}</b>", estilo_item)
+
+        tabela_dados.append([
+            str(qtd),
+            item_paragraph,
+            f"R$ {preco:.2f}",
+            f"R$ {total:.2f}",
+        ])
+
         subtotal += total
-        tabela_dados.append([str(qtd), nome_item, f"R$ {preco:.2f}", f"R$ {total:.2f}"])
 
     tabela = Table(tabela_dados, colWidths=[25, 95, 45, 45])
     tabela.setStyle(TableStyle([
@@ -985,16 +1574,19 @@ def gerar_nota(pedido_id):
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('FONTSIZE', (0, 0), (-1, -1), 7),
     ]))
-    elementos.append(tabela)
-    elementos.append(Spacer(1, 12))
 
-    delivery_fee = float(pedido.get("delivery_fee") or 0)
-    total_final = subtotal + delivery_fee
+    elementos.append(tabela)
+    elementos.append(Spacer(1, 10))
+
+    # Totais
+    taxa = float(pedido.get("delivery_fee") or 0)
+    total_final = subtotal + taxa
 
     elementos.append(Paragraph(f"<b>Subtotal:</b> R$ {subtotal:.2f}", estilo_negrito))
-    elementos.append(Paragraph(f"<b>Taxa de entrega:</b> R$ {delivery_fee:.2f}", estilo_negrito))
+    elementos.append(Paragraph(f"<b>Taxa de entrega:</b> R$ {taxa:.2f}", estilo_negrito))
     elementos.append(Paragraph(f"<b>Total Geral:</b> R$ {total_final:.2f}", estilo_negrito))
     elementos.append(Spacer(1, 15))
 
@@ -1002,7 +1594,11 @@ def gerar_nota(pedido_id):
     elementos.append(Paragraph("Sistema NTDEV — www.devrestaurante.com", estilo_texto))
 
     doc.build(elementos)
+
     return send_from_directory(app.config['NOTAS_FOLDER'], filename, as_attachment=False)
+
+
+
 
 @app.route('/admin/vendas/<int:pedido_id>/status', methods=['POST'])
 def api_update_venda_status(pedido_id):

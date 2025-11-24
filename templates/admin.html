@@ -40,6 +40,8 @@
       <section id="content-area">
         <div id="produtos" class="card">
           <h2>Gerenciar Produtos</h2>
+
+          <!-- ====== Formulário — agora com tamanhos, ingredientes e adicionais dinâmicos ====== -->
           <div class="add-box card">
             <h3>Adicionar Novo Produto</h3>
             <form
@@ -49,28 +51,101 @@
               id="formAdd"
             >
               <input type="text" name="name" placeholder="Nome" required />
-              <input
-                type="number"
-                name="price"
-                placeholder="Preço"
-                step="0.01"
-                required
-              />
-              <select name="category" required>
-                <option value="">Categoria</option>
 
-                {% for c in categorias %}
-                <option value="{{ c.name }}">{{ c.name }}</option>
-                {% endfor %}
-              </select>
+              <div style="display: flex; gap: 8px">
+                <input
+                  type="number"
+                  name="price"
+                  placeholder="Preço base (R$)"
+                  step="0.01"
+                  required
+                />
+
+                <select name="category" required style="min-width: 180px">
+                  <option value="">Categoria</option>
+                  {% for c in categorias %}
+                  <option value="{{ c.name }}">{{ c.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
               <textarea name="description" placeholder="Descrição"></textarea>
               <input type="file" name="image" accept="image/*" />
-              <div style="display: flex; gap: 8px; margin-top: 8px">
+
+              <div style="margin-top: 8px">
+                <label>
+                  <input
+                    type="checkbox"
+                    name="customizable"
+                    value="1"
+                    id="customizableCB"
+                  />
+                  Produto personalizável (habilita tamanhos / ingredientes /
+                  adicionais)
+                </label>
+              </div>
+
+              <!-- Controles de personalização (visíveis somente se checkbox marcado) -->
+              <div id="customOptions" style="display: none; margin-top: 12px">
+                <div class="section-box">
+                  <strong>Tamanhos (opcionais)</strong>
+                  <div id="sizesContainer" style="margin-top: 8px"></div>
+                  <div style="margin-top: 8px">
+                    <button
+                      type="button"
+                      class="btn ghost mini-btn"
+                      onclick="addSizeField()"
+                    >
+                      + Adicionar tamanho
+                    </button>
+                    <span class="small-muted">
+                      Ex: Pequena +0, Média +5.00, Família +12.00</span
+                    >
+                  </div>
+                </div>
+
+                <div class="section-box">
+                  <strong>Ingredientes (checkbox)</strong>
+                  <div id="ingredientsContainer" style="margin-top: 8px"></div>
+                  <div style="margin-top: 8px">
+                    <button
+                      type="button"
+                      class="btn ghost mini-btn"
+                      onclick="addIngredientField()"
+                    >
+                      + Novo ingrediente
+                    </button>
+                    <span class="small-muted"
+                      >Ingredientes serão salvos no banco e podem ser
+                      reutilizados</span
+                    >
+                  </div>
+                </div>
+
+                <div class="section-box">
+                  <strong>Adicionais (opcionais)</strong>
+                  <div id="extrasContainer" style="margin-top: 8px"></div>
+                  <div style="margin-top: 8px">
+                    <button
+                      type="button"
+                      class="btn ghost mini-btn"
+                      onclick="addExtraField()"
+                    >
+                      + Adicionar adicional
+                    </button>
+                    <span class="small-muted"
+                      >Adicionais cobram valor extra por item</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: 12px">
                 <button class="btn" type="submit">Adicionar</button>
                 <button
                   class="btn ghost"
                   type="button"
-                  onclick="document.getElementById('formAdd').reset()"
+                  onclick="document.getElementById('formAdd').reset(); hideCustomOptions();"
                 >
                   Limpar
                 </button>
@@ -78,6 +153,7 @@
             </form>
           </div>
 
+          <!-- modal de pedido (mantido) -->
           <div id="modalNovoPedido">
             <div class="box">
               <h2>📦 Novo Pedido Recebido!</h2>
@@ -88,6 +164,7 @@
 
           <div id="newOrderAlert"></div>
 
+          <!-- ===== Lista de produtos ===== -->
           <h3 style="margin-top: 14px">Produtos cadastrados</h3>
           <div class="grid" id="productGrid">
             {% for p in products %}
@@ -108,6 +185,9 @@
                   <div>
                     <div style="font-weight: 700">{{ p.name }}</div>
                     <div class="muted">{{ p.category }}</div>
+                    {% if p.customizable %}
+                    <div class="small-muted">Personalizável</div>
+                    {% endif %}
                   </div>
                   <div style="text-align: right">
                     <div style="font-weight: 700">
@@ -122,6 +202,7 @@
                   {{ p.description }}
                 </div>
               </div>
+
               <div class="card-actions">
                 <button
                   class="btn ghost"
@@ -129,6 +210,14 @@
                 >
                   Editar
                 </button>
+
+                <button
+                  class="btn ghost"
+                  onclick="openVariations('{{ p.id }}')"
+                >
+                  Gerenciar
+                </button>
+
                 <form
                   action="/admin/delete/{{ p.id }}"
                   method="POST"
@@ -142,6 +231,7 @@
           </div>
         </div>
 
+        <!-- resto das tabs (vendas / relatorios / config) mantidos sem grandes alterações -->
         <div id="vendas" class="card" style="display: none">
           <h2>Vendas</h2>
 
@@ -411,6 +501,7 @@
       </aside>
     </main>
 
+    <!-- modal editar produto (mantido) -->
     <div class="modal-bg" id="modalEdit">
       <div class="modal">
         <h3>Editar Produto</h3>
@@ -456,7 +547,75 @@
       </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/admin_relatorios.js') }}"></script>
+    <div class="modal-bg" id="modalVariations" style="display: none">
+      <div class="modal" id="variationsModalInner">
+        <h3>
+          Gerenciar Item <span id="varProductId" style="display: none"></span>
+        </h3>
+        <p class="muted">Adicione ou remova opções deste produto.</p>
+
+        <div class="variations-grid">
+          <div class="card variation-card">
+            <h4>📏 Tamanhos</h4>
+            <div id="listSizes" class="scroll-list"></div>
+            <div class="input-group">
+              <input type="text" id="inSizeName" placeholder="Ex: Grande" />
+
+              <input
+                type="number"
+                id="inSizePrice"
+                step="0.01"
+                placeholder="Preço extra (R$)"
+                class="extra-price-input"
+              />
+
+              <button onclick="addVariation('size')" class="btn mini-btn">
+                +
+              </button>
+            </div>
+          </div>
+
+          <div class="card variation-card">
+            <h4>🍅 Ingredientes</h4>
+            <div id="listIngredients" class="scroll-list"></div>
+            <div class="input-group">
+              <input type="text" id="inIngName" placeholder="Ex: Queijo" />
+              <button onclick="addVariation('ingredient')" class="btn mini-btn">
+                +
+              </button>
+            </div>
+          </div>
+
+          <div class="card variation-card">
+            <h4>🥓 Adicionais (Extras)</h4>
+            <div id="listExtras" class="scroll-list"></div>
+            <div class="input-group">
+              <input type="text" id="inExtraName" placeholder="Nome" />
+              <input
+                type="number"
+                id="inExtraPrice"
+                placeholder="R$"
+                class="extra-price-input"
+              />
+              <button onclick="addVariation('extra')" class="btn mini-btn">
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onclick="closeVariations()"
+          class="btn ghost"
+          style="margin-top: 20px; width: 100%"
+        >
+          Fechar
+        </button>
+      </div>
+    </div>
+
+<script src="{{ url_for('static', filename='js/admin_relatorios.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+
   </body>
 </html>
