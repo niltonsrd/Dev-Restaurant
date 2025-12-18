@@ -3,12 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin – Dev Restaurante</title>
-    <link
-      rel="icon"
-      href="{{ url_for('static', filename='favicon.ico') }}"
-      type="image/x-icon"
-    />
+    <title>Painel Administrativo</title>
+    <link rel="icon" href="{{ settings.logo_path }}" type="image/png" />
+
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/admin.css') }}"
@@ -18,8 +15,8 @@
   <body>
     <header class="top">
       <div>
-        <h1>Painel Administrativo — Dev Restaurante</h1>
-        <div class="muted">Área administrativa • NTDEV</div>
+        <h1>Painel Administrativo — {{ settings.site_title }}</h1>
+        <div class="muted">Área administrativa • {{ settings.site_title }}</div>
       </div>
 
       <div class="top-right">
@@ -39,11 +36,11 @@
     <main>
       <section id="content-area">
         <div id="produtos" class="card">
-          <h2>Gerenciar Produtos</h2>
+          <h2>🍽️ Gerenciar Produtos</h2>
 
           <!-- ====== Formulário — agora com tamanhos, ingredientes e adicionais dinâmicos ====== -->
           <div class="add-box card">
-            <h3>Adicionar Novo Produto</h3>
+            <h3>➕ Adicionar Novo Produto</h3>
             <form
               action="/admin/add"
               method="POST"
@@ -165,7 +162,7 @@
           <div id="newOrderAlert"></div>
 
           <!-- ===== Lista de produtos ===== -->
-          <h3 style="margin-top: 14px">Produtos cadastrados</h3>
+          <h3 style="margin-top: 14px">📦 Produtos Cadastrados</h3>
           <div class="grid" id="productGrid">
             {% for p in products %}
             <div class="product-card">
@@ -233,7 +230,7 @@
 
         <!-- resto das tabs (vendas / relatorios / config) mantidos sem grandes alterações -->
         <div id="vendas" class="card" style="display: none">
-          <h2>Vendas</h2>
+          <h2>🛒 Vendas</h2>
 
           <div class="vendas-filters">
             <input
@@ -358,118 +355,310 @@
             <p class="muted" id="data-inicio-relatorio">
               Dados a partir de: Carregando...
             </p>
-                     
-          </div>
-                                       
-          <div class="card shadow mb-4" style="margin-top: 20px; padding: 15px">
                        
-            <div class="card-header py-3">
-                           
-              <h4
-                class="m-0 font-weight-bold"
-                style="color: var(--main-color); margin-top: 0"
-              >
-                Visão Geral dos Resultados
-              </h4>
-                         
-            </div>
-                       
-            <div class="card-body">
-                           
-              <p class="text-center muted">
-                Espaço reservado para um futuro gráfico (ex: Chart.js).
-              </p>
-                         
-            </div>
-                     
           </div>
                  
         </div>
 
         <div id="config" class="card" style="display: none">
-          <h2>Configurações</h2>
-          <div class="card" style="padding: 12px">
-            <div class="muted">Configurações básicas do painel</div>
-            <form
-              id="configForm"
-              style="display: grid; gap: 8px; margin-top: 10px"
-            >
-              <label class="small">Telefone para WhatsApp</label>
-              <input
-                type="text"
-                id="cfgPhone"
-                value="{{ request.environ.get('RESTAURANT_PHONE', '') or '' }}"
-              />
-              <label class="small">Tempo da sessão (segundos)</label>
-              <input type="number" id="cfgSession" value="3600" />
-              <div style="display: flex; gap: 8px">
-                <button class="btn" type="button" onclick="saveConfig()">
-                  Salvar
-                </button>
-                <button
-                  class="btn ghost"
-                  type="button"
-                  onclick="location.reload()"
-                >
-                  Recarregar
-                </button>
-              </div>
-            </form>
-            <div class="card" style="padding: 12px; margin-top: 18px">
-              <h3>Categorias de Produtos</h3>
-              <div class="muted">
-                Gerencie as categorias usadas nos produtos
-              </div>
+          <h2>⚙️ Configurações</h2>
+          <div class="muted">
+            Gerencie as informações e aparência do sistema
+          </div>
 
-              <form
-                action="/admin/categories/add"
-                method="POST"
-                style="margin-top: 12px; display: flex; gap: 8px"
-              >
+          <form
+            id="configForm"
+            action="/admin/configuracoes/salvar"
+            method="POST"
+            enctype="multipart/form-data"
+            style="margin-top: 16px; display: grid; gap: 16px"
+          >
+            <!-- 📱 CONFIGURAÇÕES BÁSICAS -->
+            <div class="card">
+              <h3>📱 Básico do Site</h3>
+
+              <div style="display: grid; gap: 10px">
+                <label class="small">Telefone para WhatsApp</label>
                 <input
                   type="text"
-                  name="nome"
-                  placeholder="Nova categoria…"
-                  required
-                  style="flex: 1"
+                  name="whatsapp_number"
+                  value="{{ settings.whatsapp_number }}"
                 />
-                <button class="btn" type="submit">Adicionar</button>
-              </form>
 
-              <h4 style="margin-top: 16px">Categorias cadastradas</h4>
+                <label class="small">Título do Restaurante</label>
+                <input
+                  type="text"
+                  name="site_title"
+                  value="{{ settings.site_title }}"
+                />
 
-              <ul style="list-style: none; padding-left: 0; margin-top: 10px">
-                {% for c in categorias %}
-                <li
-                  style="
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 6px 0;
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-                  "
+                <label class="small">Descrição</label>
+                <textarea name="site_description" style="min-height: 70px">
+{{ settings.site_description }}</textarea
                 >
-                  <span>{{ c.name }}</span>
-
-                  <form
-                    action="/admin/categories/delete/{{ c.id }}"
-                    method="POST"
-                    style="margin: 0"
-                  >
-                    <button
-                      class="btn btn-danger"
-                      style="padding: 6px 10px; font-size: 12px"
-                    >
-                      Excluir
-                    </button>
-                  </form>
-                </li>
-                {% else %}
-                <li style="color: #888; padding: 5px 0">
-                  Nenhuma categoria encontrada.
-                </li>
-                {% endfor %}
-              </ul>
+              </div>
             </div>
+
+            <!-- 🏪 DADOS DA LOJA -->
+            <div class="card">
+              <h3>🏪 Dados da Loja</h3>
+
+              <div
+                style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px"
+              >
+                <div>
+                  <label>CNPJ</label>
+                  <input
+                    type="text"
+                    name="cnpj"
+                    value="{{ settings.cnpj or '' }}"
+                  />
+                </div>
+
+                <div>
+                  <label>Estado</label>
+                  <input
+                    type="text"
+                    name="address_state"
+                    value="{{ settings.address_state or '' }}"
+                  />
+                </div>
+
+                <div style="grid-column: span 2">
+                  <label>Rua</label>
+                  <input
+                    type="text"
+                    name="address_street"
+                    value="{{ settings.address_street or '' }}"
+                  />
+                </div>
+
+                <div>
+                  <label>Número</label>
+                  <input
+                    type="text"
+                    name="address_number"
+                    value="{{ settings.address_number or '' }}"
+                  />
+                </div>
+
+                <div>
+                  <label>Cidade</label>
+                  <input
+                    type="text"
+                    name="address_city"
+                    value="{{ settings.address_city or '' }}"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 🖼️ IDENTIDADE VISUAL -->
+            <div class="card">
+              <h3>🖼️ Identidade Visual</h3>
+
+              <div
+                style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px"
+              >
+                <div>
+                  <label class="small">Logo atual</label>
+                  <img
+                    src="{{ settings.logo_path }}"
+                    style="height: 80px; display: block; margin-bottom: 8px"
+                  />
+                  <input type="file" name="logo_file" accept="image/*" />
+                </div>
+
+                <div>
+                  <label class="small">Imagem de fundo</label>
+                  <img
+                    src="{{ settings.background_path }}"
+                    style="height: 80px; display: block; margin-bottom: 8px"
+                  />
+                  <input type="file" name="background_file" accept="image/*" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 🚚 TAXA DE ENTREGA -->
+            <div class="card">
+              <h3>🚚 Taxa de Entrega</h3>
+
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: repeat(2, 1fr);
+                  gap: 10px;
+                "
+              >
+                <div>
+                  <label>CEP da Loja</label>
+                  <input
+                    type="text"
+                    name="delivery_cep_loja"
+                    value="{{ settings.delivery_cep_loja }}"
+                  />
+                </div>
+
+                <div>
+                  <label>Taxa fixa (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="delivery_taxa_fixa"
+                    value="{{ settings.delivery_taxa_fixa }}"
+                  />
+                </div>
+
+                <div>
+                  <label>Preço por KM (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="delivery_preco_km"
+                    value="{{ settings.delivery_preco_km }}"
+                  />
+                </div>
+
+                <div>
+                  <label>Taxa máxima (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="delivery_taxa_maxima"
+                    value="{{ settings.delivery_taxa_maxima }}"
+                  />
+                </div>
+              </div>
+
+              <div class="small-muted" style="margin-top: 8px">
+                O valor será calculado automaticamente com base na distância.
+              </div>
+            </div>
+
+            <!-- 💾 AÇÕES -->
+            <div style="display: flex; gap: 10px">
+              <button class="btn" type="submit">Salvar Configurações</button>
+              <button
+                class="btn ghost"
+                type="button"
+                onclick="location.reload()"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+
+          <div class="card" style="margin-top: 16px">
+            <h3>🔐 Segurança do Painel</h3>
+
+            <form
+              id="admin-change-password-form"
+              style="display: grid; gap: 10px; margin-top: 10px"
+            >
+              <label class="small">Senha atual</label>
+              <div class="admin-pass-field">
+                <input
+                  type="password"
+                  name="senha_atual"
+                  id="senha_atual"
+                  required
+                />
+                <button
+                  type="button"
+                  class="admin-pass-toggle"
+                  onclick="toggleAdminPassword('senha_atual', this)"
+                >
+                  👁
+                </button>
+              </div>
+
+              <label class="small">Nova senha</label>
+              <div class="admin-pass-field">
+                <input
+                  type="password"
+                  name="nova_senha"
+                  id="nova_senha"
+                  required
+                />
+                <button
+                  type="button"
+                  class="admin-pass-toggle"
+                  onclick="toggleAdminPassword('nova_senha', this)"
+                >
+                  👁
+                </button>
+              </div>
+
+              <label class="small">Confirmar nova senha</label>
+              <div class="admin-pass-field">
+                <input
+                  type="password"
+                  name="confirmar_senha"
+                  id="confirmar_senha"
+                  required
+                />
+                <button
+                  type="button"
+                  class="admin-pass-toggle"
+                  onclick="toggleAdminPassword('confirmar_senha', this)"
+                >
+                  👁
+                </button>
+              </div>
+
+              <button class="btn" type="submit">Alterar senha</button>
+
+              <div class="small-muted">
+                Após alterar a senha, você será deslogado automaticamente.
+              </div>
+            </form>
+          </div>
+
+          <!-- 🏷️ CATEGORIAS -->
+          <div class="card" style="margin-top: 20px">
+            <h3>🏷️ Categorias de Produtos</h3>
+            <div class="muted">
+              Gerencie as categorias utilizadas nos produtos
+            </div>
+
+            <form
+              action="/admin/categories/add"
+              method="POST"
+              style="display: flex; gap: 8px; margin-top: 10px"
+            >
+              <input
+                type="text"
+                name="nome"
+                placeholder="Nova categoria..."
+                required
+                style="flex: 1"
+              />
+              <button class="btn">Adicionar</button>
+            </form>
+
+            <ul style="list-style: none; padding: 0; margin-top: 12px">
+              {% for c in categorias %}
+              <li
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  padding: 6px 0;
+                  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                "
+              >
+                <span>{{ c.name }}</span>
+                <form
+                  action="/admin/categories/delete/{{ c.id }}"
+                  method="POST"
+                >
+                  <button class="btn btn-danger mini-btn">Excluir</button>
+                </form>
+              </li>
+              {% else %}
+              <li class="muted">Nenhuma categoria cadastrada</li>
+              {% endfor %}
+            </ul>
           </div>
         </div>
       </section>
@@ -576,7 +765,7 @@
           </div>
 
           <div class="card variation-card">
-            <h4>🍅 Ingredientes</h4>
+            <h4>🍕 Sabores</h4>
             <div id="listIngredients" class="scroll-list"></div>
             <div class="input-group">
               <input type="text" id="inIngName" placeholder="Ex: Queijo" />
@@ -614,8 +803,84 @@
       </div>
     </div>
 
-<script src="{{ url_for('static', filename='js/admin_relatorios.js') }}"></script>
-<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+    <div id="admin-js-modal" style="display: none">
+      <div class="admin-js-box">
+        <div id="admin-js-icon" class="admin-js-icon">✔</div>
 
+        <div id="admin-js-title" class="admin-js-title"></div>
+
+        <div class="admin-js-message" id="admin-js-message"></div>
+
+        <button class="admin-js-btn" onclick="fecharAdminModal()">OK</button>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("admin-change-password-form");
+      let redirectAfterClose = false;
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(form);
+
+        const res = await fetch("/admin/alterar-senha", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+
+        abrirAdminModal(data.message, data.success);
+      });
+
+      function abrirAdminModal(msg, isSuccess) {
+        const modal = document.getElementById("admin-js-modal");
+        const icon = document.getElementById("admin-js-icon");
+        const title = document.getElementById("admin-js-title");
+        const message = document.getElementById("admin-js-message");
+
+        message.innerText = msg;
+
+        if (isSuccess) {
+          icon.innerText = "✔";
+          icon.className = "admin-js-icon success";
+          title.innerText = "Senha alterada com sucesso";
+          redirectAfterClose = true;
+        } else {
+          icon.innerText = "✖";
+          icon.className = "admin-js-icon error";
+          title.innerText = "Erro ao alterar senha";
+          redirectAfterClose = false;
+        }
+
+        modal.style.display = "flex";
+      }
+
+      function fecharAdminModal() {
+        document.getElementById("admin-js-modal").style.display = "none";
+
+        if (redirectAfterClose) {
+          window.location.href = "/admin";
+        }
+      }
+
+      function toggleAdminPassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+
+        if (!input) return;
+
+        if (input.type === "password") {
+          input.type = "text";
+          btn.innerText = "🙈";
+        } else {
+          input.type = "password";
+          btn.innerText = "👁";
+        }
+      }
+    </script>
+
+    <script src="{{ url_for('static', filename='js/admin_relatorios.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
   </body>
 </html>

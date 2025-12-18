@@ -8,6 +8,7 @@
   --bg-primary: #121212;
   --bg-secondary: #1e1e1e;
   --bg-tertiary: #2a2a2a;
+ 
 
   --text-main: #ffffff;
   --text-muted: #b3b3b3;
@@ -72,8 +73,7 @@ html, body {
 body {
   font-family: "Poppins", Arial, sans-serif;
   background:
-    linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)),
-    url("/static/img/background.jpg") center/cover fixed no-repeat;
+    var(--bg-image) center/cover fixed no-repeat;
   background-color: var(--bg-primary);
   color: var(--text-main);
   min-height: 100vh;

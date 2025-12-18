@@ -8,11 +8,25 @@ let cart = [];
 let currentCategory = "Todos";
 let currentDeliveryFee = 0;
 
-// Store config (edite o CEP da loja)
-const STORE_CEP = "41185-510";
-const TAXA_FIXA = 5.0;
-const TAXA_MAXIMA = 25.00; // você escolhe
-const PRECO_POR_KM = 2.0;
+let deliveryFee = 0;
+
+async function calcularFrete() {
+  const cep = document.getElementById("cep").value;
+
+  if (!cep || cep.length < 8) return;
+
+  const res = await fetch("/api/calcular-frete", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `cep=${encodeURIComponent(cep)}`,
+  });
+
+  const data = await res.json();
+  if (data.ok) {
+    deliveryFee = data.delivery_fee;
+    updateCartUI();
+  }
+}
 
 // ---------------------------
 // DOM refs
@@ -268,10 +282,11 @@ function renderCart() {
 
     // 🔥 CORREÇÃO IMPORTANTE → NÃO mostrar {} nunca
     if (
-      !optionsSummary || 
-      optionsSummary.trim() === "" || 
+      !optionsSummary ||
+      optionsSummary.trim() === "" ||
       !item.options ||
-      (typeof item.options === "object" && Object.keys(item.options).length === 0)
+      (typeof item.options === "object" &&
+        Object.keys(item.options).length === 0)
     ) {
       optionsSummary = ""; // não mostra nada
     }
@@ -290,8 +305,8 @@ function renderCart() {
             }
 
             <div class="small muted">${item.qty} x R$ ${formatCurrency(
-              item.unit_price || item.price || 0
-            )}</div>
+      item.unit_price || item.price || 0
+    )}</div>
         </div>
 
         <div style="display:flex;flex-direction:column;gap:6px;">
@@ -318,7 +333,6 @@ function renderCart() {
   updateCheckoutButtonState();
 }
 
-
 function buildCartOptionsSummary(item) {
   if (!item.options) return "";
 
@@ -330,23 +344,20 @@ function buildCartOptionsSummary(item) {
   }
 
   if (opts.ingredients?.length) {
-    parts.push(
-      "Sabores: " + opts.ingredients.map(i => i.name).join(", ")
-    );
+    parts.push("Sabores: " + opts.ingredients.map((i) => i.name).join(", "));
   }
 
   if (opts.extras?.length) {
     parts.push(
       "Adicionais: " +
         opts.extras
-          .map(e => `${e.name} (+R$ ${formatCurrency(e.price)})`)
+          .map((e) => `${e.name} (+R$ ${formatCurrency(e.price)})`)
           .join(", ")
     );
   }
 
   return parts.join(" • ");
 }
-
 
 function updateSummaryDisplay() {
   const subtotal = getCartSubtotal();
@@ -463,219 +474,42 @@ function removeFromCart(_uid) {
   renderCart();
 }
 
-// ---------------------------
-// CEP / Frete (ViaCEP + Nominatim + distância Haversine)
-// ---------------------------
-// ---------------------------
-// CEP Multi-API (BrasilAPI → AwesomeAPI → APICEP)
-// ---------------------------
-async function fetchCEP(cleanCep) {
-  cleanCep = (cleanCep || "").replace(/\D/g, "");
-  if (cleanCep.length !== 8) return null;
-
-  // 1. BrasilAPI
-  try {
-    const r1 = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleanCep}`);
-    if (r1.ok) {
-      const d = await r1.json();
-      return {
-        logradouro: d.street || "",
-        bairro: d.neighborhood || "",
-        localidade: d.city || "",
-        uf: d.state || ""
-      };
-    }
-  } catch (e) {}
-
-  // 2. AwesomeAPI
-  try {
-    const r2 = await fetch(`https://cep.awesomeapi.com.br/json/${cleanCep}`);
-    if (r2.ok) {
-      const d = await r2.json();
-      return {
-        logradouro: d.address || "",
-        bairro: d.district || "",
-        localidade: d.city || "",
-        uf: d.state || ""
-      };
-    }
-  } catch (e) {}
-
-  // 3. APICEP
-  try {
-    const r3 = await fetch(`https://ws.apicep.com/cep/${cleanCep}.json`);
-    const d = await r3.json();
-    if (!d.error) {
-      return {
-        logradouro: d.address || "",
-        bairro: d.district || "",
-        localidade: d.city || "",
-        uf: d.state || ""
-      };
-    }
-  } catch (e) {}
-
-  return null;
-}
-
-
-async function coordsFromCEPData(viaData) {
-  if (!viaData) return null;
-  const queryParts = [];
-  if (viaData.logradouro) queryParts.push(viaData.logradouro);
-  if (viaData.bairro) queryParts.push(viaData.bairro);
-  if (viaData.localidade) queryParts.push(viaData.localidade);
-  if (viaData.uf) queryParts.push(viaData.uf);
-  const q = encodeURIComponent(queryParts.join(", "));
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`;
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "DeliveryApp/1.0 (contato@example.com)" },
-    });
-    const json = await res.json();
-    if (!json || json.length === 0) return null;
-    return { lat: parseFloat(json[0].lat), lon: parseFloat(json[0].lon) };
-  } catch (err) {
-    console.error("Erro Nominatim:", err);
-    return null;
-  }
-}
-
-async function cepToCoords(cep) {
-  const clean = (cep || "").replace(/\D/g, "");
-
-  // Buscar dados do CEP usando MULTI-API
-  const data = await fetchCEP(clean);
-  if (!data) return null;
-
-  // Converter endereço em coordenadas via Nominatim
-  const coords = await coordsFromCEPData(data);
-
-  return coords;
-}
-
-
-function calcDistKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-async function calculateDeliveryFeeByCEP(cepCliente) {
-  const cleanCliente = (cepCliente || "").replace(/\D/g, "");
-  const cleanLoja = (STORE_CEP || "").replace(/\D/g, "");
-
-  if (cleanCliente.length !== 8 || cleanLoja.length !== 8) {
-    currentDeliveryFee = 0;
-    updateSummaryDisplay();
-    return;
-  }
-
-  const [lojaCoords, clienteCoords] = await Promise.all([
-    cepToCoords(cleanLoja),
-    cepToCoords(cleanCliente),
-  ]);
-if (!lojaCoords || !clienteCoords) {
-    alert("Não foi possível obter coordenadas. Aplicando taxa máxima.");
-    currentDeliveryFee = TAXA_MAXIMA;
-    updateSummaryDisplay();
-    return;
-}
-
-function showCepWarning(msg = "") {
-  const modal = document.getElementById("cepWarningModal");
-  const text = document.getElementById("cepWarningText");
-  if (text && msg) text.textContent = msg;
-  modal.classList.remove("hidden");
-  setTimeout(() => modal.classList.add("visible"), 10);
-}
-
-function closeCepWarning() {
-  const modal = document.getElementById("cepWarningModal");
-  modal.classList.remove("visible");
-  setTimeout(() => modal.classList.add("hidden"), 200);
-}
-
-
-  const distanceKm = calcDistKm(
-    lojaCoords.lat,
-    lojaCoords.lon,
-    clienteCoords.lat,
-    clienteCoords.lon
-  );
-  const fee = TAXA_FIXA + distanceKm * PRECO_POR_KM;
-  currentDeliveryFee = parseFloat(fee.toFixed(2));
-  console.log(
-    `Distância (km): ${distanceKm.toFixed(
-      2
-    )} → Frete: R$ ${currentDeliveryFee.toFixed(2)}`
-  );
-  updateSummaryDisplay();
-}
-
-async function fetchAddressByCEP() {
-  const cep = inputCEP && inputCEP.value ? inputCEP.value : "";
-  const cleanCep = cep.replace(/\D/g, "");
-
-  if (cleanCep.length !== 8) {
-    if (customerStreet) customerStreet.value = "";
-    currentDeliveryFee = 0;
-    updateSummaryDisplay();
-    return;
-  }
-
-  try {
-    const data = await fetchCEP(cleanCep);
-
-    if (!data) {
-      alert("CEP não encontrado em nenhuma base. Digite um CEP válido.");
-      if (customerStreet) customerStreet.value = "";
-      currentDeliveryFee = 0;
-      updateSummaryDisplay();
-      return;
-    }
-
-    const fullStreet = `${data.logradouro}, ${data.bairro}, ${data.localidade}/${data.uf}`;
-
-    if (customerStreet) customerStreet.value = fullStreet;
-
-    if (customerAddressInput)
-      customerAddressInput.dataset.baseAddress = fullStreet;
-
-    // mantém cálculo de taxa
-    await calculateDeliveryFeeByCEP(cleanCep);
-
-  } catch (err) {
-    console.error("Erro ao buscar CEP:", err);
-    if (customerStreet) customerStreet.value = "Erro ao buscar CEP.";
-    currentDeliveryFee = 0;
-    updateSummaryDisplay();
-  }
-}
-
-
 function concatenateAddress() {
+  // 🟢 CORREÇÃO: Agora, a rua é lida diretamente do campo customerStreet.
   const streetBase =
-    customerAddressInput && customerAddressInput.dataset.baseAddress
-      ? customerAddressInput.dataset.baseAddress
-      : "";
+    customerStreet && customerStreet.value ? customerStreet.value.trim() : "";
+
   const number =
     customerNumber && customerNumber.value ? customerNumber.value.trim() : "";
   const reference =
     customerReference && customerReference.value
       ? customerReference.value.trim()
       : "";
-  let fullAddress = streetBase;
-  if (number) fullAddress = `${fullAddress}, Nº ${number}`;
-  if (reference) fullAddress = `${fullAddress} (Ref: ${reference})`;
-  if (customerAddressInput) customerAddressInput.value = fullAddress.trim();
+      
+  let addressParts = [];
+
+  // 1. Adiciona a rua se ela existir
+  if (streetBase) {
+      addressParts.push(streetBase);
+  }
+
+  // 2. Adiciona o número se ele existir
+  if (number) {
+      addressParts.push(`Nº ${number}`);
+  }
+  
+  // Concatena a rua e o número (ex: "Rua Exemplo, Nº 71")
+  let combinedAddress = addressParts.join(', ').trim();
+  
+  // 3. Adiciona a referência (entre parênteses)
+  if (reference) {
+      // Garante que haja um espaço se já houver texto
+      combinedAddress = combinedAddress ? `${combinedAddress} (Ref: ${reference})` : `(Ref: ${reference})`;
+  }
+
+  // Atribui a string completa ao campo FINAL de endereço
+  if (customerAddressInput) customerAddressInput.value = combinedAddress;
+  
   updateCheckoutButtonState();
 }
 
@@ -784,9 +618,14 @@ if (btnCheckout) {
     const bairroVal = (
       document.getElementById("customerBairro") || { value: "" }
     ).value;
-    const deliveryFee = currentDeliveryFee;
     const subtotal = getCartSubtotal();
+
+    const deliveryFee = parseFloat(
+      document.getElementById("deliveryTaxInput").value || 0
+    );
+
     const totalFinal = subtotal + deliveryFee;
+
     const payment = paymentSelect ? paymentSelect.value : "";
 
     const formData = new FormData();
@@ -810,14 +649,14 @@ if (btnCheckout) {
     }
 
     // serializa o carrinho com as informações necessárias
-        const cartForServer = cart.map((i) => ({
-          id: i.product_id,
-          name: i.name,
-          qty: i.qty,
-          unit_price: Number(i.unit_price).toFixed(2),
-          base_price: Number(i.base_price).toFixed(2),
-          options: i.options || {},
-        }));
+    const cartForServer = cart.map((i) => ({
+      id: i.product_id,
+      name: i.name,
+      qty: i.qty,
+      unit_price: Number(i.unit_price).toFixed(2),
+      base_price: Number(i.base_price).toFixed(2),
+      options: i.options || {},
+    }));
 
     formData.append("cart", JSON.stringify(cartForServer));
 
@@ -842,6 +681,35 @@ if (btnCheckout) {
         updateCheckoutButtonState();
       });
   });
+}
+
+async function buscarEnderecoPorCEP() {
+  const cep = document.getElementById("inputCEP").value.replace(/\D/g, "");
+
+  if (cep.length !== 8) return;
+
+  try {
+    const res = await fetch("/api/buscar-endereco", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `cep=${cep}`,
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) return;
+
+    // Preenche campos automaticamente
+    document.getElementById("inputRua").value = data.logradouro || "";
+    document.getElementById("inputBairro").value = data.bairro || "";
+    document.getElementById("inputCidade").value = data.cidade || "";
+    document.getElementById("inputEstado").value = data.estado || "";
+
+    // chama o cálculo de frete no backend
+    calcularFrete();
+  } catch (e) {
+    console.error("Erro ao buscar endereço:", e);
+  }
 }
 
 function resetCheckout() {
@@ -923,13 +791,12 @@ function updateCheckoutButtonState() {
 let configuringProductContext = null; // holds { product_id, base_price, name, image, details }
 
 function openConfigureModal(product_id, name, base_price, qty = 1, image = "") {
-
   configuringProductContext = {
-    product_id: product_id,     // ✔ CORRIGIDO
-    name: name,                 // ✔ CORRIGIDO
-    base_price: base_price,     // ✔ CORRIGIDO
+    product_id: product_id, // ✔ CORRIGIDO
+    name: name, // ✔ CORRIGIDO
+    base_price: base_price, // ✔ CORRIGIDO
     image: image || "default.png",
-    details: { sizes: [], ingredients: [], extras: [] }
+    details: { sizes: [], ingredients: [], extras: [] },
   };
 
   if (!configureModal) return;
@@ -965,7 +832,6 @@ function openConfigureModal(product_id, name, base_price, qty = 1, image = "") {
   configureModal.classList.remove("hidden");
   setTimeout(() => configureModal.classList.add("visible"), 8);
 }
-
 
 function closeConfigureModal() {
   if (!configureModal) return;
@@ -1188,18 +1054,17 @@ function renderConfigOptions() {
       configAddBtn.disabled = false;
       updateFinalPrice();
     } else if (type === "ingredient") {
-    // INGREDIENTE — SELEÇÃO ÚNICA
-    configOptionsContainer
+      // INGREDIENTE — SELEÇÃO ÚNICA
+      configOptionsContainer
         .querySelectorAll('.option-card[data-type="ingredient"].selected')
-        .forEach(c => c.classList.remove("selected"));
+        .forEach((c) => c.classList.remove("selected"));
 
-    card.classList.add("selected");
-    updateFinalPrice();
-}
-else if (type === "extra") {
-    // EXTRAS — múltipla escolha normal
-    card.classList.toggle("selected");
-    updateFinalPrice();
+      card.classList.add("selected");
+      updateFinalPrice();
+    } else if (type === "extra") {
+      // EXTRAS — múltipla escolha normal
+      card.classList.toggle("selected");
+      updateFinalPrice();
     }
   };
   configOptionsContainer.addEventListener("click", handler);
@@ -1296,41 +1161,149 @@ function updateFinalPrice() {
 // Ao clicar em Adicionar no modal: cria item montado no carrinho
 // ---------------------------
 if (configAddBtn) {
-    configAddBtn.addEventListener("click", () => {
-        if (!configuringProductContext) return;
+  configAddBtn.addEventListener("click", () => {
+    if (!configuringProductContext) return;
 
-        const ctx = configuringProductContext;
-        const comp = ctx._computed || {};
+    const ctx = configuringProductContext;
+    const comp = ctx._computed || {};
 
-        const unitPrice = Number(comp.unit_price || ctx.base_price || 0);
-        const qty = Number(comp.qty) || 1;
+    const unitPrice = Number(comp.unit_price || ctx.base_price || 0);
+    const qty = Number(comp.qty) || 1;
 
-        const options = {
-            size: comp.size || null,
-            ingredients: comp.ingredients || [],
-            extras: comp.extras || []
-        };
+    const options = {
+      size: comp.size || null,
+      ingredients: comp.ingredients || [],
+      extras: comp.extras || [],
+    };
 
-        cart.push({
-            _uid: uid("c_"),
-            product_id: ctx.product_id,           // correto agora
-            name: ctx.name,
-            
-            unit_price: unitPrice,                // preço final da unidade
-            base_price: ctx.base_price,           // preço original
-            
-            qty,
-            image: ctx.image || "default.png",
-            options: options
-        });
+    cart.push({
+      _uid: uid("c_"),
+      product_id: ctx.product_id, // correto agora
+      name: ctx.name,
 
-        renderCart();
-        closeConfigureModal();
-        showDecisionModal();
+      unit_price: unitPrice, // preço final da unidade
+      base_price: ctx.base_price, // preço original
+
+      qty,
+      image: ctx.image || "default.png",
+      options: options,
     });
+
+    renderCart();
+    closeConfigureModal();
+    showDecisionModal();
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const cepInput = document.getElementById("inputCEP");
+
+  if (!cepInput) return;
+
+  // quando o usuário sair do campo CEP
+  cepInput.addEventListener("blur", () => {
+    const cep = cepInput.value.replace(/\D/g, "");
+
+    if (cep.length !== 8) return;
+
+    calcularFreteBackend(cep);
+  });
+});
+
+function formatCEP(input) {
+  let v = input.value.replace(/\D/g, "");
+  if (v.length > 8) v = v.slice(0, 8);
+
+  if (v.length > 5) {
+    input.value = v.slice(0, 5) + "-" + v.slice(5);
+  } else {
+    input.value = v;
+  }
+}
+
+async function buscarEnderecoPorCEP() {
+  const cepInput = document.getElementById("inputCEP");
+  if (!cepInput) return;
+
+  const cep = cepInput.value.replace(/\D/g, "");
+  if (cep.length !== 8) return;
+
+  try {
+    const res = await fetch("/api/buscar-endereco", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `cep=${encodeURIComponent(cep)}`,
+    });
+
+    const data = await res.json();
+    if (!data.ok) return;
+
+    document.getElementById("customerStreet").value = data.logradouro || "";
+    document.getElementById("customerBairro").value = data.bairro || "";
+
+    // Monta endereço base (rua + número depois)
+    document.getElementById("customerAddress").value = data.logradouro || "";
+
+    await calcularFreteBackend();
+
+    // Chama cálculo de frete no backend
+    calcularFreteBackend();
+  } catch (err) {
+    console.error("Erro ao buscar endereço:", err);
+  }
+}
+
+function mostrarFreteCalculando() {
+  const el = document.querySelector(
+    ".totals-row:nth-child(2) .amount"
+  );
+  if (el) {
+    el.innerText = "calculando...";
+  }
 }
 
 
+
+async function calcularFreteBackend() {
+  const cep = document.getElementById("inputCEP").value.replace(/\D/g, "");
+  if (cep.length !== 8) return;
+
+  mostrarFreteCalculando();
+
+  const start = Date.now();
+
+  try {
+    const res = await fetch("/api/calcular-frete", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `cep=${encodeURIComponent(cep)}`
+    });
+
+    const data = await res.json();
+
+    const elapsed = Date.now() - start;
+    if (elapsed < 500) {
+      await new Promise(r => setTimeout(r, 500 - elapsed));
+    }
+
+    if (data.ok) {
+      currentDeliveryFee = parseFloat(data.delivery_fee);
+      updateSummaryDisplay();
+    }
+  } catch (err) {
+    console.error("Erro ao calcular frete:", err);
+  }
+}
+
+
+
+function fetchAddressByCEP() {
+  buscarEnderecoPorCEP();
+}
+
+function updateCartUI() {
+  renderCart();
+}
 
 // ---------------------------
 // Inicialização

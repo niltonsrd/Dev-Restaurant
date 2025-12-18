@@ -1,318 +1,427 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login Administrativo</title>
+    <link rel="icon" href="static/favicon.ico" type="image/png" />
 
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: "Poppins", sans-serif;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Poppins", sans-serif;
+      }
 
-        body {
-            height: 100vh;
-            background: linear-gradient(135deg, #0d0d0d, #1a1a1a);
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
+      body {
+        height: 100vh;
+        background: linear-gradient(135deg, #0d0d0d, #1a1a1a);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
 
-        /* Partículas animadas */
-        .particle {
-            position: absolute;
-            width: 6px;
-            height: 6px;
-            background: rgba(255,140,0,0.5);
-            border-radius: 50%;
-            filter: blur(4px);
-            animation: floatUp 8s linear infinite;
-            opacity: 0;
-        }
+      /* Partículas animadas */
+      .particle {
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        background: rgba(255, 140, 0, 0.5);
+        border-radius: 50%;
+        filter: blur(4px);
+        animation: floatUp 8s linear infinite;
+        opacity: 0;
+      }
 
-        @keyframes floatUp {
-            0% { transform: translateY(30px); opacity: 0; }
-            20% { opacity: 1; }
-            100% { transform: translateY(-400px); opacity: 0; }
+      @keyframes floatUp {
+        0% {
+          transform: translateY(30px);
+          opacity: 0;
         }
-
-        /* Glow de fundo */
-        .bg-glow {
-            position: absolute;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(255,120,0,0.35), transparent 70%);
-            top: -150px;
-            right: -120px;
-            filter: blur(90px);
+        20% {
+          opacity: 1;
         }
+        100% {
+          transform: translateY(-400px);
+          opacity: 0;
+        }
+      }
 
-        /* Card premium */
+      /* Glow de fundo */
+      .bg-glow {
+        position: absolute;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(
+          circle,
+          rgba(255, 120, 0, 0.35),
+          transparent 70%
+        );
+        top: -150px;
+        right: -120px;
+        filter: blur(90px);
+      }
+
+      /* Card premium */
+      .login-box {
+        width: 380px;
+        padding: 40px 35px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 18px;
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        box-shadow: 0 15px 45px rgba(0, 0, 0, 0.55);
+        transform: translateY(25px);
+        opacity: 0;
+        animation: slideUp 0.8s ease-out forwards;
+      }
+
+      @keyframes slideUp {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Hover profissional */
+      .login-box:hover {
+        transform: scale(1.02);
+        transition: 0.3s;
+        box-shadow: 0 20px 55px rgba(255, 120, 0, 0.28);
+      }
+
+      h2 {
+        text-align: center;
+        color: #fff;
+        font-size: 26px;
+        margin-bottom: 25px;
+        font-weight: 600;
+      }
+
+      .error {
+        color: #ff6b6b;
+        text-align: center;
+        margin-bottom: 12px;
+        font-size: 14px;
+      }
+
+      /* Inputs estilizados */
+      .input-group {
+        margin-bottom: 20px;
+        position: relative;
+      }
+
+      .input-group label {
+        color: #ccc;
+        font-size: 14px;
+      }
+
+      .input-group i {
+        position: absolute;
+        font-style: normal;
+        top: 32px;
+        left: 7px;
+        color: #ff9800;
+        font-size: 18px;
+        opacity: 0.9;
+      }
+
+      .input-group input {
+        width: 100%;
+        margin-top: 6px;
+        padding: 12px 14px 12px 42px;
+        border-radius: 12px;
+        border: none;
+        outline: none;
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        font-size: 15px;
+        transition: 0.25s;
+      }
+
+      /* Animação perfeita no foco */
+      .input-group input:focus {
+        background: rgba(255, 255, 255, 0);
+        box-shadow: 0 0 0 2px rgba(255, 120, 0, 0.8);
+        transform: translateX(3px);
+      }
+
+      /* Botão com animação de onda luminosa */
+      .btn-login {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 12px;
+        margin-top: 5px;
+        background: linear-gradient(135deg, #ff8c00, #ff6000);
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 16px;
+        overflow: hidden;
+        position: relative;
+        transition: 0.25s;
+      }
+
+      .btn-login:hover {
+        filter: brightness(1.15);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(255, 120, 0, 0.45);
+      }
+
+      .btn-login::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -80px;
+        width: 60px;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.45);
+        transform: skewX(-25deg);
+        transition: 0.5s;
+      }
+
+      .btn-login:hover::after {
+        left: 120%;
+      }
+
+      @media (max-width: 430px) {
         .login-box {
-            width: 380px;
-            padding: 40px 35px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 18px;
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            box-shadow: 0 15px 45px rgba(0,0,0,0.55);
-            transform: translateY(25px);
-            opacity: 0;
-            animation: slideUp .8s ease-out forwards;
+          width: 90%;
+          padding: 32px;
         }
+      }
 
-        @keyframes slideUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Hover profissional */
-        .login-box:hover {
-            transform: scale(1.02);
-            transition: .3s;
-            box-shadow: 0 20px 55px rgba(255,120,0,0.28);
-        }
-
-        h2 {
-            text-align: center;
-            color: #fff;
-            font-size: 26px;
-            margin-bottom: 25px;
-            font-weight: 600;
-        }
-
-        .error {
-            color: #ff6b6b;
-            text-align: center;
-            margin-bottom: 12px;
-            font-size: 14px;
-        }
-
-        /* Inputs estilizados */
-        .input-group {
-            margin-bottom: 20px;
-            position: relative;
-        }
-
-        .input-group label {
-            color: #ccc;
-            font-size: 14px;
-        }
-
-        .input-group i {
-            position: absolute;
-            font-style: normal;
-            top: 32px;
-            left: 7px;
-            color: #ff9800;
-            font-size: 18px;
-            opacity: 0.9;
-        }
-
-        .input-group input {
-            width: 100%;
-            margin-top: 6px;
-            padding: 12px 14px 12px 42px;
-            border-radius: 12px;
-            border: none;
-            outline: none;
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            font-size: 15px;
-            transition: .25s;
-        }
-
-        /* Animação perfeita no foco */
-        .input-group input:focus {
-            background: rgba(255, 255, 255, 0);
-            box-shadow: 0 0 0 2px rgba(255,120,0,0.8);
-            transform: translateX(3px);
-        }
-
-        /* Botão com animação de onda luminosa */
-        .btn-login {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 12px;
-            margin-top: 5px;
-            background: linear-gradient(135deg, #ff8c00, #ff6000);
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 16px;
-            overflow: hidden;
-            position: relative;
-            transition: .25s;
-        }
-
-        .btn-login:hover {
-            filter: brightness(1.15);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(255,120,0,0.45);
-        }
-
-        .btn-login::after {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: -80px;
-            width: 60px;
-            height: 100%;
-            background: rgba(255,255,255,0.45);
-            transform: skewX(-25deg);
-            transition: .5s;
-        }
-
-        .btn-login:hover::after {
-            left: 120%;
-        }
-
-        @media (max-width: 430px) {
-            .login-box {
-                width: 90%;
-                padding: 32px;
-            }
-        }
-
-        /* ==================================
+      /* ==================================
       RESPONSIVIDADE COMPLETA
 ================================== */
 
-/* Tablets (<= 768px) */
-@media (max-width: 768px) {
-    body {
-        padding: 20px;
-        overflow-y: auto;
-        align-items: flex-start;
-    }
+      /* Tablets (<= 768px) */
+      @media (max-width: 768px) {
+        body {
+          padding: 20px;
+          overflow-y: auto;
+          align-items: flex-start;
+        }
 
-    .login-box {
-        width: 92%;
-        margin-top: 40px;
-    }
-}
+        .login-box {
+          width: 92%;
+          margin-top: 40px;
+        }
+      }
 
-/* Smartphones médios (<= 520px) */
-@media (max-width: 520px) {
+      /* Smartphones médios (<= 520px) */
+      @media (max-width: 520px) {
+        h2 {
+          font-size: 22px;
+          margin-bottom: 20px;
+        }
 
-    h2 {
-        font-size: 22px;
-        margin-bottom: 20px;
-    }
+        .login-box {
+          width: 92%;
+          padding: 28px 26px;
+          border-radius: 16px;
+        }
 
-    .login-box {
-        width: 92%;
-        padding: 28px 26px;
+        .input-group label {
+          font-size: 13px;
+        }
+
+        .input-group input {
+          font-size: 14px;
+          padding: 12px 14px 12px 40px;
+        }
+
+        .input-group i {
+          font-size: 16px;
+          top: 33px;
+        }
+
+        .btn-login {
+          font-size: 15px;
+          padding: 12px;
+        }
+
+        /* Partículas mais leves no mobile */
+        .particle {
+          width: 4px;
+          height: 4px;
+          filter: blur(3px);
+          animation-duration: 9s;
+        }
+      }
+
+      /* Smartphones pequenos (<= 390px) */
+      @media (max-width: 390px) {
+        h2 {
+          font-size: 20px;
+        }
+
+        .login-box {
+          padding: 26px 22px;
+          width: 94%;
+        }
+
+        .input-group input {
+          font-size: 13.5px;
+          padding: 11px 12px 11px 38px;
+        }
+
+        .input-group i {
+          font-size: 15px;
+          left: 6px;
+        }
+
+        .btn-login {
+          font-size: 14px;
+          padding: 11px;
+        }
+      }
+
+      /* ===============================
+   MODAL ADMIN FEEDBACK (ISOLADO)
+================================ */
+
+      #admin-feedback-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+
+      #admin-feedback-modal {
+        background: #1c1c1c;
+        padding: 26px 28px;
         border-radius: 16px;
-    }
+        min-width: 300px;
+        max-width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+        text-align: center;
+        animation: adminPop 0.35s ease;
+      }
 
-    .input-group label {
-        font-size: 13px;
-    }
+      @keyframes adminPop {
+        from {
+          transform: scale(0.85);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
 
-    .input-group input {
-        font-size: 14px;
-        padding: 12px 14px 12px 40px;
-    }
-
-    .input-group i {
-        font-size: 16px;
-        top: 33px;
-    }
-
-    .btn-login {
+      .admin-feedback-message {
         font-size: 15px;
-        padding: 12px;
-    }
+        margin-bottom: 18px;
+        line-height: 1.4;
+      }
 
-    /* Partículas mais leves no mobile */
-    .particle {
-        width: 4px;
-        height: 4px;
-        filter: blur(3px);
-        animation-duration: 9s;
-    }
-}
+      /* cores por tipo */
+      .admin-feedback-message.error {
+        color: #ff6b6b;
+      }
 
-/* Smartphones pequenos (<= 390px) */
-@media (max-width: 390px) {
+      .admin-feedback-message.success {
+        color: #4caf50;
+      }
 
-    h2 {
-        font-size: 20px;
-    }
+      .admin-feedback-message.info {
+        color: #ffb74d;
+      }
 
-    .login-box {
-        padding: 26px 22px;
-        width: 94%;
-    }
+      #admin-feedback-btn {
+        background: linear-gradient(135deg, #ff8c00, #ff6000);
+        border: none;
+        border-radius: 10px;
+        padding: 10px 22px;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
 
-    .input-group input {
-        font-size: 13.5px;
-        padding: 11px 12px 11px 38px;
-    }
-
-    .input-group i {
-        font-size: 15px;
-        left: 6px;
-    }
-
-    .btn-login {
-        font-size: 14px;
-        padding: 11px;
-    }
-}
-
+      #admin-feedback-btn:hover {
+        filter: brightness(1.1);
+      }
     </style>
+  </head>
 
-</head>
-
-<body>
-
+  <body>
     <div class="bg-glow"></div>
 
     <!-- partículas -->
     <script>
-        for (let i = 0; i < 18; i++) {
-            let p = document.createElement("div");
-            p.classList.add("particle");
-            p.style.left = Math.random() * 100 + "vw";
-            p.style.animationDelay = (Math.random() * 6) + "s";
-            p.style.animationDuration = (6 + Math.random() * 6) + "s";
-            document.body.appendChild(p);
-        }
+      for (let i = 0; i < 18; i++) {
+        let p = document.createElement("div");
+        p.classList.add("particle");
+        p.style.left = Math.random() * 100 + "vw";
+        p.style.animationDelay = Math.random() * 6 + "s";
+        p.style.animationDuration = 6 + Math.random() * 6 + "s";
+        document.body.appendChild(p);
+      }
     </script>
 
     <form method="POST" class="login-box">
+      <h2>Área Administrativa</h2>
 
-        <h2>Área Administrativa</h2>
+      <div class="input-group">
+        <label>Usuário</label>
+        <i>👤</i>
+        <input
+          type="text"
+          name="username"
+          required
+          placeholder="Digite seu usuário"
+        />
+      </div>
 
-        {% if error %}
-            <p class="error">{{ error }}</p>
-        {% endif %}
+      <div class="input-group">
+        <label>Senha</label>
+        <i>🔒</i>
+        <input
+          type="password"
+          name="password"
+          required
+          placeholder="Digite sua senha"
+        />
+      </div>
 
-        <div class="input-group">
-            <label>Usuário</label>
-            <i>👤</i>
-            <input type="text" name="username" required placeholder="Digite seu usuário">
-        </div>
-
-        <div class="input-group">
-            <label>Senha</label>
-            <i>🔒</i>
-            <input type="password" name="password" required placeholder="Digite sua senha">
-        </div>
-
-        <button class="btn-login" type="submit">Entrar</button>
-
+      <button class="btn-login" type="submit">Entrar</button>
     </form>
 
-</body>
+    {% with messages = get_flashed_messages(with_categories=true) %} {% if
+    messages %}
+    <div id="admin-feedback-overlay">
+      <div id="admin-feedback-modal">
+        {% for category, message in messages %}
+        <div class="admin-feedback-message {{ category }}">{{ message }}</div>
+        {% endfor %}
+        <button id="admin-feedback-btn">OK</button>
+      </div>
+    </div>
+    {% endif %} {% endwith %}
+
+    <script>
+      const adminOverlay = document.getElementById("admin-feedback-overlay");
+      const adminBtn = document.getElementById("admin-feedback-btn");
+
+      if (adminBtn) {
+        adminBtn.onclick = () => {
+          adminOverlay.remove();
+        };
+
+        if (adminOverlay) {
+          adminOverlay.addEventListener("click", (e) => {
+            if (e.target === adminOverlay) adminOverlay.remove();
+          });
+        }
+      }
+    </script>
+  </body>
 </html>

@@ -3,32 +3,34 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Dev Restaurante</title>
+    <title>{{ settings.site_title }}</title>
 
-    <link
-      rel="icon"
-      href="{{ url_for('static', filename='favicon.ico') }}"
-      type="image/x-icon"
-    />
+    <link rel="icon" href="{{ settings.logo_path }}" type="image/png" />
+
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
     />
+    <style>
+      :root {
+        --bg-image: url("{{ settings.background_path }}");
+      }
+    </style>
   </head>
 
   <body>
     <div class="container">
       <header>
         <div class="brand">
-          <img
-            src="{{ url_for('static', filename='img/logo.png') }}"
-            class="logo"
-            alt="logo"
-          />
+          <img src="{{ settings.logo_path }}" class="logo" alt="logo" />
 
           <div>
-            <h1>Dev Restaurante</h1>
-            <p class="subtitle">Peça Online — Rápido e Fácil</p>
+            <h1>{{ settings.site_title }}</h1>
+            <p>
+              {{ settings.address_street }}, {{ settings.address_number }} — {{
+              settings.address_city }}/{{ settings.address_state }}
+            </p>
+            <p class="subtitle">{{ settings.site_description }}</p>
           </div>
         </div>
 
@@ -72,6 +74,7 @@
             type="text"
             maxlength="9"
             oninput="formatCEP(this)"
+            onblur="calcularFreteBackend()"
             required
           />
 

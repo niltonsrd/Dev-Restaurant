@@ -5,13 +5,15 @@ import traceback
 import csv
 import io
 import json
+import time
 # 🟢 CORREÇÃO NAS IMPORTS: Mantenha timedelta e timezone
 from datetime import datetime, timezone, timedelta 
 from flask import (
     Flask, render_template, g, jsonify, request, redirect, url_for,
-    flash, send_from_directory, abort, make_response
+    flash, send_from_directory, abort, make_response, session
 )
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # PDF (mantido)
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
@@ -19,6 +21,37 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
+from urllib.parse import quote
+
+# ... após as imports ...
+from functools import wraps # ⬅️ GARANTA QUE ISTO ESTÁ IMPORTADO TAMBÉM
+
+# ... outras configurações ...
+
+ADMIN_RESET_TOKEN = "ntdev"
+
+
+# --------------------------
+# AUXILIARES DE ADMIN
+# --------------------------
+
+def is_admin_logged_in():
+    """Checa se o admin está logado (baseado na variável de sessão)"""
+    return session.get('admin_logged_in', False)
+
+def admin_login_required(f):
+    """
+    Decorador que garante que a rota só pode ser acessada por um
+    administrador logado.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not is_admin_logged_in():
+            # Redireciona para a página de login e exibe uma mensagem
+            flash('Você precisa estar logado para acessar esta página.', 'error')
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # -----------------------
 # CONFIG
@@ -33,7 +66,7 @@ NOTAS_FOLDER = os.path.join(BASE_DIR, 'static', 'notas')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
-RESTAURANT_PHONE = os.environ.get('RESTAURANT_PHONE', '5571991118924')
+#RESTAURANT_PHONE = os.environ.get('RESTAURANT_PHONE', '5571991118924')
 SERVER_URL = os.environ.get('SERVER_URL', None)
 
 os.makedirs(UPLOAD_FOLDER_PRODUCTS, exist_ok=True)
@@ -42,6 +75,154 @@ os.makedirs(NOTAS_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET', 'dev-secret')
+
+# =============================
+# Função get_db
+# =============================
+def get_db():
+    if not hasattr(g, "_db"):
+        g._db = sqlite3.connect(DATABASE_FILE)
+        g._db.row_factory = sqlite3.Row
+    return g._db
+
+def get_admin_user():
+    return get_setting("admin_user") or "admin"
+
+def get_admin_password_hash():
+    return get_setting("admin_password_hash") or ""
+
+
+    # =========================================================
+    # Função para buscar configurações na tabela settings
+    # =========================================================
+def get_setting(key):
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT value FROM settings WHERE key = ?", (key,))
+    row = cur.fetchone()
+    return row['value'] if row else None
+
+# =============================
+# Função get_settings
+# =============================
+def get_settings():
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT key, value FROM settings")
+    rows = cur.fetchall()
+    return {r["key"]: r["value"] for r in rows}
+
+
+def update_setting(db, key, value):
+    """Atualiza ou insere uma configuração no banco de dados."""
+    # Garante que números com vírgula sejam tratados como ponto decimal
+    if isinstance(value, str):
+        value = value.replace(',', '.') 
+        
+    db.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+        (key, value)
+    )
+
+# =============================
+# Inicializar tabela de settings
+# =============================
+def init_settings():
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    """)
+
+    # valores iniciais (somente se não existir)
+    defaults = {
+        "whatsapp_number": "",
+        "title": "Dev Restaurante",
+        "description": "O melhor da região!",
+        "logo": "",
+        "background": ""
+    }
+
+    for k, v in defaults.items():
+        cur.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
+
+    db.commit()
+
+
+def carregar_contexto_admin():
+    db = get_db()
+    cur = db.cursor()
+
+    # produtos
+    cur.execute("""
+        SELECT p.id, p.name, p.price, p.image, p.description,
+               c.name AS category
+        FROM products p
+        LEFT JOIN categories c ON c.id = p.category_id
+        ORDER BY p.id
+    """)
+    products = cur.fetchall()
+
+    # categorias
+    cur.execute("SELECT id, name FROM categories ORDER BY name")
+    categorias = cur.fetchall()
+
+    settings = {
+        "site_title": get_setting("site_title") or "Meu Restaurante",
+        "logo_path": get_setting("logo_path") or "/static/img/logo.png",
+    }
+
+    return dict(
+        admin=True,
+        products=products,
+        categorias=categorias,
+        settings=settings
+    )
+
+
+def load_settings_dict():
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT key, value FROM settings")
+    rows = cur.fetchall()
+    return {r["key"]: r["value"] for r in rows}
+
+def save_settings_dict(settings_dict):
+    """
+    Salva todas as configurações no banco de dados SQLite.
+    Assume a existência de uma tabela 'settings' com colunas 'key' e 'value'.
+    """
+    db = get_db()
+    cur = db.cursor()
+    
+    # Itera sobre o dicionário e insere/atualiza cada configuração
+    for key, value in settings_dict.items():
+        # Converte o valor para string antes de salvar
+        value_str = str(value) if value is not None else '' 
+        
+        # Usa INSERT OR REPLACE para garantir que a chave é atualizada se já existir
+        cur.execute("""
+            INSERT OR REPLACE INTO settings (key, value) 
+            VALUES (?, ?)
+        """, (key, value_str))
+        
+    db.commit()
+
+
+# =============================
+# CHAMAR INICIALIZAÇÃO
+# (Agora dentro de um contexto válido)
+# =============================
+with app.app_context():
+    init_settings()
+
+# =============================
+# Outras configs
+# =============================
 app.config['UPLOAD_FOLDER_PRODUCTS'] = UPLOAD_FOLDER_PRODUCTS
 app.config['UPLOAD_FOLDER_PIX'] = UPLOAD_FOLDER_PIX
 app.config['NOTAS_FOLDER'] = NOTAS_FOLDER
@@ -73,6 +254,28 @@ def get_db():
         db = g._database = sqlite3.connect(DATABASE_FILE)
         db.row_factory = sqlite3.Row
     return db
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """Rota para exibir o formulário de login e processar a autenticação."""
+    if is_admin_logged_in():
+        return redirect(url_for('admin'))
+
+    if request.method == 'POST':
+        password = request.form.get('password')
+        
+        # Você pode melhorar isso com hash de senha real, mas para o sistema simples:
+        if password == ADMIN_PASSWORD:
+            session['admin_logged_in'] = True
+            flash('Login realizado com sucesso!', 'success')
+            return redirect(url_for('admin'))
+        else:
+            flash('Senha incorreta.', 'error')
+            
+    # Rota GET - Renderiza a página de login
+    return render_template('login_admin.html')
+
+
 
 @app.teardown_appcontext
 def close_connection(exc):
@@ -262,14 +465,176 @@ def montar_descricao_item(options_json):
             )
             partes.append(f"Adicionais: {extras}")
     
-        return " | ".join(partes)    
+        return " | ".join(partes)  
+
+
+
+@app.route('/admin/configuracoes/salvar', methods=['POST'])
+@admin_login_required
+def save_config():
+    db = get_db()
+    
+    # 1. Campos de Texto Simples e Loja
+    settings_to_save = {
+        'whatsapp_number': request.form.get('whatsapp_number'),
+        'site_title': request.form.get('site_title'),
+        'site_description': request.form.get('site_description'),
+        'cnpj': request.form.get('cnpj'),
+        'address_street': request.form.get('address_street'),
+        'address_number': request.form.get('address_number'),
+        'address_city': request.form.get('address_city'),
+        'address_state': request.form.get('address_state'),
+        
+        # 🟢 NOVOS CAMPOS DE TAXA DE ENTREGA (Importante: tratar como string e float)
+        'delivery_cep_loja': request.form.get('delivery_cep_loja'),
+        # Os campos float devem ser convertidos. Usa-se .replace(',', '.') para garantir que 
+        # a entrada no banco seja numérica, caso o navegador envie com vírgula.
+        'delivery_taxa_fixa': request.form.get('delivery_taxa_fixa', '0.00').replace(',', '.'),
+        'delivery_preco_km': request.form.get('delivery_preco_km', '0.00').replace(',', '.'),
+        'delivery_taxa_maxima': request.form.get('delivery_taxa_maxima', '0.00').replace(',', '.'),
+    }
+
+    try:
+        # Salva todos os campos simples e de taxa de entrega
+        for key, value in settings_to_save.items():
+            if value is not None:
+                update_setting(db, key, value)
+
+        # 2. Upload de Logo
+        logo_file = request.files.get('logo_file')
+        if logo_file and allowed_file(logo_file.filename):
+            filename = secure_filename(logo_file.filename)
+            file_path = os.path.join(UPLOAD_FOLDER_PRODUCTS, filename)
+            logo_file.save(file_path)
+            # Salva o caminho relativo (ou nome do arquivo) no banco de dados
+            update_setting(db, 'logo_path', url_for('static', filename=f'img/{filename}'))
+        
+        # 3. Upload de Imagem de Fundo
+        background_file = request.files.get('background_file')
+        if background_file and allowed_file(background_file.filename):
+            filename = secure_filename(background_file.filename)
+            file_path = os.path.join(UPLOAD_FOLDER_PRODUCTS, filename)
+            background_file.save(file_path)
+            # Salva o caminho relativo (ou nome do arquivo) no banco de dados
+            update_setting(db, 'background_path', url_for('static', filename=f'img/{filename}'))
+
+        db.commit()
+        flash('Configurações salvas com sucesso!', 'success')
+    except Exception as e:
+        db.rollback()
+        print(f"Erro ao salvar configurações: {e}")
+        flash('Erro ao salvar as configurações. Verifique o log do servidor.', 'error')
+
+    return redirect(url_for('admin'))    
+
+  
+@app.route("/api/buscar-endereco", methods=["POST"])
+def buscar_endereco():
+    import requests
+
+    cep = request.form.get("cep", "").strip()
+
+    if not cep or len(cep) != 8:
+        return jsonify({"ok": False})
+
+    try:
+        r = requests.get(f"https://viacep.com.br/ws/{cep}/json/")
+        data = r.json()
+
+        if data.get("erro"):
+            return jsonify({"ok": False})
+
+        return jsonify({
+            "ok": True,
+            "logradouro": data.get("logradouro", ""),
+            "bairro": data.get("bairro", ""),
+            "cidade": data.get("localidade", ""),
+            "estado": data.get("uf", "")
+        })
+
+    except:
+        return jsonify({"ok": False})
+
+
+
+import requests
+import math
+
+@app.route('/api/calcular-frete', methods=['POST'])
+def calcular_frete():
+    cep_cliente = request.form.get("cep", "").strip()
+
+    if not cep_cliente:
+        return jsonify({"ok": False, "error": "CEP inválido"}), 400
+
+    db = get_db()
+
+    cep_loja = get_setting("delivery_cep_loja") or ""
+    taxa_fixa = float(get_setting("delivery_taxa_fixa") or 0)
+    preco_km = float(get_setting("delivery_preco_km") or 0)
+    taxa_maxima = float(get_setting("delivery_taxa_maxima") or 999)
+
+    try:
+        # Usando ViaCEP + OpenStreetMap (Nominatim)
+        def get_coords(cep):
+            r = requests.get(f"https://viacep.com.br/ws/{cep}/json/")
+            data = r.json()
+            if "erro" in data:
+                return None
+            addr = f"{data['logradouro']}, {data['localidade']} - {data['uf']}"
+            geo = requests.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": addr, "format": "json"},
+                headers={"User-Agent": "delivery-app"}
+            ).json()
+            if not geo:
+                return None
+            return float(geo[0]["lat"]), float(geo[0]["lon"])
+
+        loja = get_coords(cep_loja)
+        cliente = get_coords(cep_cliente)
+
+        if not loja or not cliente:
+            raise Exception("Erro ao localizar CEP")
+
+        # Distância Haversine
+        def haversine(lat1, lon1, lat2, lon2):
+            R = 6371
+            dlat = math.radians(lat2 - lat1)
+            dlon = math.radians(lon2 - lon1)
+            a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            return R * c
+
+        distancia_km = haversine(loja[0], loja[1], cliente[0], cliente[1])
+
+        taxa = taxa_fixa + (distancia_km * preco_km)
+        taxa = min(taxa, taxa_maxima)
+
+        return jsonify({
+            "ok": True,
+            "distance_km": round(distancia_km, 2),
+            "delivery_fee": round(taxa, 2)
+        })
+
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 
 # -----------------------
 # ROTAS PÚBLICAS / API
 # -----------------------
 @app.route('/')
 def index():
-    return render_template('index.html')
+    def load_settings():
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("SELECT key, value FROM settings")
+        rows = cur.fetchall()
+        return {r["key"]: r["value"] for r in rows}
+    settings = load_settings()
+    return render_template('index.html', settings=settings)
 
 @app.route('/api/products')
 def api_products():
@@ -327,32 +692,78 @@ def api_categories_full():
     cats = [{'id': r['id'], 'name': r['name']} for r in rows]
     return jsonify(cats)
 
+@app.route("/admin/api/settings")
+def api_get_settings():
+    if request.cookies.get('admin_auth') != '1':
+        return jsonify({"ok": False, "error": "Acesso negado"}), 403
+
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT key, value FROM settings")
+    rows = cur.fetchall()
+
+    settings = {r["key"]: r["value"] for r in rows}
+    return jsonify({"ok": True, "settings": settings})
+
+@app.route("/admin/api/settings/save", methods=["POST"])
+def api_save_settings():
+    if request.cookies.get('admin_auth') != '1':
+        return jsonify({"ok": False, "error": "Acesso negado"}), 403
+
+    data = request.get_json() or {}
+
+    db = get_db()
+    cur = db.cursor()
+
+    for key, value in data.items():
+        cur.execute("""
+            INSERT INTO settings (key, value)
+            VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """, (key, value))
+
+    db.commit()
+    return jsonify({"ok": True})
+
+
+
 # ================================
 # ROTA PÚBLICA - DETALHES DE PRODUTO
 # Permite que o cliente veja tamanhos, ingredientes e extras
 # ================================
-
-
-
-# Delivery fees hardcoded (mantive sua lógica existente)
-delivery_fee = 5.00  # Valor fixo para taxa de entrega
 
 # -----------------------
 # CHECKOUT
 # -----------------------
 @app.route('/api/checkout', methods=['POST'])
 def api_checkout():
-    import json, traceback
+    import json, traceback, time, os
+    from urllib.parse import quote
+    from werkzeug.utils import secure_filename
+    
+    # ⚠️ ATENÇÃO: Assumindo que você tem as funções auxiliares (get_settings, load_settings_dict, get_db, now_br) e variáveis globais (BASE_DIR) definidas no seu escopo.
+
     data = request.form
 
     # ------------------------------
-    #   CAMPOS DO CLIENTE
+    #   CAMPOS DO CLIENTE (SIMPLIFICADO e CORRIGIDO)
     # ------------------------------
     customer_name = (data.get('customer_name') or data.get('customerName') or data.get('name') or '').strip()
-    customer_address = (data.get('customer_address') or data.get('customerAddress') or data.get('address') or '').strip()
     customer_contact = (data.get('customer_contact') or data.get('customerContact') or '').strip()
     customer_note = (data.get('customer_note') or data.get('customerNote') or '').strip()
     customer_bairro = (data.get('customer_bairro') or data.get('customerBairro') or data.get('bairro') or '').strip()
+
+    # 🟢 CORREÇÃO FINAL DO ENDEREÇO: O script.js envia apenas o campo concatenado 'customer_address'.
+    customer_address = (data.get('customer_address') or data.get('customerAddress') or data.get('address') or '').strip()
+
+    if not customer_address:
+        customer_address = "Endereço não informado"
+
+    print(f"DEBUG: customer_address recebido: {customer_address}")    
+    
+    # ------------------------------
+    #   RESTO DOS CAMPOS
+    # ------------------------------
 
     payment_method = (data.get('payment_method') or data.get('paymentMethod') or '').strip().lower()
     troco_para = (data.get('troco_para') or data.get('trocoPara') or '').strip()
@@ -370,47 +781,67 @@ def api_checkout():
     except:
         cart = []
 
-    if not customer_name or not customer_address or not cart:
-        return jsonify({'ok': False, 'error': 'Preencha nome, endereço e itens.'}), 400
+    if not customer_name or customer_address == "Endereço não informado" or not cart:
+         return jsonify({'ok': False, 'error': 'Preencha nome, endereço e itens.'}), 400
+
 
     # ------------------------------
     #   FRETE
     # ------------------------------
     try:
-        delivery_fee = float(str(delivery_override).replace(",", ".")) if delivery_override else 0.0
+        if delivery_override:
+            delivery_fee = float(str(delivery_override).replace(",", "."))
+        else:
+            delivery_fee = 0.0
     except:
         delivery_fee = 0.0
 
-    # ------------------------------
-    #   PIX - UPLOAD
-    # ------------------------------
-    pix_filename = None
-    pix_url = None
 
-    try:
-        if payment_method == "pix" and 'pix_comprovante' in request.files:
-            file = request.files['pix_comprovante']
-            if file:
-                filename = save_image_file(file)
-                if filename:
-                    pix_filename = filename
-                    base = (SERVER_URL.rstrip('/') if globals().get('SERVER_URL') else request.host_url.rstrip('/'))
-                    pix_url = f"{base}/pix/{pix_filename}"
-    except:
-        traceback.print_exc()
+    settings = get_settings()
+
+    restaurant_name = settings.get("site_title", "Meu Restaurante")
+    restaurant_desc = settings.get("site_description", "")
+    restaurant_phone = settings.get("whatsapp_number", "")
+    logo_path = settings.get("logo_path", "")
+    background_path = settings.get("background_path", "")
 
     # ------------------------------
     #   MONTAR TEXTO WHATSAPP (MODELO B)
     # ------------------------------
+    settings = load_settings_dict()
+
+    restaurant_name = settings.get("site_title", "Restaurante")
+    store_whatsapp = settings.get("whatsapp_number", "")
+    store_address = f"{settings.get('address_street', '')}, {settings.get('address_number', '')}"
+    store_city = f"{settings.get('address_city', '')} - {settings.get('address_state', '')}"
+
+    pix_file = request.files.get("pix_comprovante")
+    pix_path = None
+
+    if payment_method == "pix" and pix_file and pix_file.filename:
+        filename = secure_filename(pix_file.filename)
+        unique_name = f"pix_{int(time.time())}_{filename}"
+        pix_path = f"/static/pix_comprovantes/{unique_name}"
+
+        # Corrigindo o salvamento do PIX para garantir que o diretório exista
+        try:
+            os.makedirs(os.path.join(BASE_DIR, 'static', 'pix_comprovantes'), exist_ok=True)
+            pix_file.save(os.path.join(BASE_DIR, 'static', 'pix_comprovantes', unique_name))
+        except:
+             pix_path = None # Se falhar, não salva o caminho
+
     lines = []
-    lines.append("🧾 *Pedido - Dev Restaurante*")
+    lines.append(f"🧾 *Pedido - {restaurant_name}*")
+    lines.append(f"🏪 {store_address}")
+    lines.append(f"📍 {store_city}")
+    lines.append("")
     lines.append(f"👤 Cliente: {customer_name}")
-    lines.append(f"📍 Endereço: {customer_address}")
+    lines.append(f"📍 Endereço: {customer_address}") # <-- Endereço capturado
     if customer_bairro: lines.append(f"🏙️ Bairro: {customer_bairro}")
     if customer_contact: lines.append(f"📞 Contato: {customer_contact}")
     if customer_note: lines.append(f"📝 Obs: {customer_note}")
     lines.append("")
-    lines.append(f"💳 *Pagamento:* {payment_method.capitalize()}")
+    lines.append(f"💳 *Pagamento:* {payment_method.capitalize()} -- O Motoboy leva a máquininha")
 
     if payment_method == "dinheiro" and troco_para:
         try:
@@ -418,9 +849,19 @@ def api_checkout():
             lines.append(f"Troco para: R$ {v:.2f}")
         except:
             lines.append(f"Troco para: {troco_para}")
+    else:
+        lines.append("✅ Sem troco")
 
     if payment_method == "pix":
-        lines.append("💠 PIX enviado ✔")
+       lines.append("💠 *PIX:*")
+
+    if pix_path:
+        full_link = request.host_url.rstrip("/") + pix_path
+        lines.append("📎 *Comprovante:*")
+        lines.append(full_link)
+    else:
+        lines.append("⚠️ *Comprovante não enviado*")
+
 
     lines.append("")
     lines.append("🍔 *Itens:*")
@@ -438,7 +879,7 @@ def api_checkout():
 
         # preço final do item
         try:
-            price = float(str(it.get("unit_price")).replace(",", "."))
+            price = float(str(it.get("unit_price") or 0).replace(",", "."))
         except:
             price = 0.0
 
@@ -450,12 +891,18 @@ def api_checkout():
         if isinstance(opts, str):
             try: opts = json.loads(opts)
             except: opts = {}
+        
+        # 🟢 Corrigindo o 'nan': Garante que base_price seja um número válido
+        try:
+            base_price = float(str(it.get("unit_price") or 0).replace(",", "."))
+        except:
+            base_price = 0.0
 
-        base_price = float(it.get("base_price") or 0)
 
         # ---- MODELO B ----
         lines.append(f"🍕 *{name}*")
-        lines.append(f"• Preço base: *R$ {base_price:.2f}*")
+        lines.append(f"• Preço base: *R$ {base_price:.2f}*") # <-- Corrigido (R$ nan)
+
 
         # tamanho
         size = opts.get("size")
@@ -494,16 +941,15 @@ def api_checkout():
     total_final = total_items + delivery_fee
     lines.append(f"💰 *Total:* R$ {total_final:.2f}")
 
-    if pix_url:
-        lines.append("")
-        lines.append(f"📎 Comprovante PIX: {pix_url}")
 
     lines.append("")
-    lines.append("📨 Pedido enviado via site Dev Restaurante.")
+    lines.append(f"📨 Pedido enviado via site {restaurant_name}.")
 
     # formatar para URL
-    text = "%0A".join(lines)
-    whatsapp_url = f"https://api.whatsapp.com/send?phone={RESTAURANT_PHONE}&text={text}"
+    raw_text = "\n".join(lines)
+    encoded_text = quote(raw_text)
+
+    whatsapp_url = f"https://api.whatsapp.com/send?phone={restaurant_phone}&text={encoded_text}"
 
     # ------------------------------
     #   SALVAR PEDIDO NO BANCO
@@ -515,14 +961,23 @@ def api_checkout():
         now = now_br().strftime("%Y-%m-%d %H:%M:%S")
 
         cur.execute("""
-            INSERT INTO pedidos 
-            (nome_cliente, endereco, bairro, total, data, telefone, forma_pagamento, status, observacoes, delivery_fee)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            customer_name, customer_address, customer_bairro,
-            total_final, now, customer_contact,
-            payment_method, "pendente", customer_note, delivery_fee
-        ))
+    INSERT INTO pedidos 
+    (nome_cliente, endereco, bairro, total, data, telefone,
+     forma_pagamento, status, observacoes, delivery_fee, pix_comprovante)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+""", (
+    customer_name,
+    customer_address, 
+    customer_bairro,
+    total_final,
+    now,
+    customer_contact,
+    payment_method,
+    "pendente",
+    customer_note,
+    delivery_fee,
+    pix_path
+))
 
         pedido_id = cur.lastrowid
 
@@ -532,7 +987,7 @@ def api_checkout():
             qty = int(it.get("qty") or 1)
 
             try:
-                price = float(str(it.get("unit_price")).replace(",", "."))
+                price = float(str(it.get("unit_price") or 0).replace(",", "."))
             except:
                 price = 0.0
 
@@ -563,13 +1018,13 @@ def api_checkout():
     #   RETORNO FINAL
     # ------------------------------
     return jsonify({
-        'ok': True,
-        'whatsapp_url': whatsapp_url,
-        'pedido_id': pedido_id,
-        'pix_file': pix_filename,
-        'pix_url': pix_url,
-        'total': f"{total_final:.2f}"
-    })
+    'ok': True,
+    'whatsapp_url': whatsapp_url,
+    'pedido_id': pedido_id,
+    'pix_path': pix_path,
+    'total': f"{total_final:.2f}"
+})
+
 
 
 
@@ -584,15 +1039,46 @@ def get_pix_file(filename):
 # -----------------------
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
+    # ==========================
+    # LOGIN (POST)
+    # ==========================
     if request.method == 'POST':
         password = request.form.get('password', '')
-        if password == ADMIN_PASSWORD:
-            resp = redirect(url_for('admin'))
-            resp.set_cookie('admin_auth', '1', max_age=3600, httponly=True, samesite='Lax', path='/')
-            return resp
+
+        admin_hash = get_setting("admin_password_hash") or ""
+
+        # 🔐 Se ainda não tem hash salvo, usa ADMIN_PASSWORD
+        if admin_hash == "":
+            if password == ADMIN_PASSWORD:
+                resp = redirect(url_for('admin'))
+                resp.set_cookie(
+                    'admin_auth',
+                    '1',
+                    max_age=3600,
+                    httponly=True,
+                    samesite='Lax',
+                    path='/'
+                )
+                return resp
+        else:
+            if check_password_hash(admin_hash, password):
+                resp = redirect(url_for('admin'))
+                resp.set_cookie(
+                    'admin_auth',
+                    '1',
+                    max_age=3600,
+                    httponly=True,
+                    samesite='Lax',
+                    path='/'
+                )
+                return resp
+
         flash("Senha incorreta", "error")
         return redirect(url_for('admin'))
 
+    # ==========================
+    # VERIFICA LOGIN (GET)
+    # ==========================
     is_admin = request.cookies.get('admin_auth') == '1'
     if not is_admin:
         return render_template('login_admin.html')
@@ -600,14 +1086,44 @@ def admin():
     db = get_db()
     cur = db.cursor()
 
-    # Produtos
+
+
+    # dicionário com todas as configs que o admin precisa
+    settings = {
+    "whatsapp_number": get_setting("whatsapp_number") or "",
+    "site_title": get_setting("site_title") or "Meu Restaurante",
+    "site_description": get_setting("site_description") or "",
+    "logo_path": get_setting("logo_path") or "/static/img/logo.png",
+    "background_path": get_setting("background_path") or "/static/img/bg.jpg",
+
+    # 🔥 DADOS DA LOJA
+    "cnpj": get_setting("cnpj") or "",
+    "address_street": get_setting("address_street") or "",
+    "address_number": get_setting("address_number") or "",
+    "address_city": get_setting("address_city") or "",
+    "address_state": get_setting("address_state") or "",
+
+    # 🔥 CONFIGURAÇÕES DE ENTREGA
+    "delivery_cep_loja": get_setting("delivery_cep_loja") or "",
+    "delivery_taxa_fixa": get_setting("delivery_taxa_fixa") or "",
+    "delivery_preco_km": get_setting("delivery_preco_km") or "",
+    "delivery_taxa_maxima": get_setting("delivery_taxa_maxima") or "",
+    }
+
+
+
+    # =========================================================
+    # Carregar produtos
+    # =========================================================
     cur.execute("""
-        SELECT p.id, p.name, p.price, p.image, p.description, c.id AS category_id, c.name AS category_name
+        SELECT p.id, p.name, p.price, p.image, p.description, 
+               c.id AS category_id, c.name AS category_name
         FROM products p
         LEFT JOIN categories c ON c.id = p.category_id
         ORDER BY p.id
     """)
     prods = cur.fetchall()
+
     products = []
     for p in prods:
         products.append({
@@ -620,26 +1136,211 @@ def admin():
             'description': p['description'] or ''
         })
 
+    # =========================================================
     # Categorias
+    # =========================================================
     cur.execute("SELECT id, name FROM categories ORDER BY name")
     cats = cur.fetchall()
     categorias = [{'id': c['id'], 'name': c['name']} for c in cats]
 
-    # último pedido id
+    # =========================================================
+    # Último pedido
+    # =========================================================
     try:
         cur.execute("SELECT MAX(id) as maxid FROM pedidos")
         row = cur.fetchone()
         max_id = row['maxid'] if row and row['maxid'] is not None else 0
-    except Exception:
+    except:
         max_id = 0
 
-    return render_template('admin.html', admin=True, products=products, categorias=categorias, max_id=max_id)
+    return render_template(
+        'admin.html',
+        admin=True,
+        products=products,
+        categorias=categorias,
+        max_id=max_id,
+        settings=settings   # 🔥 ESSA LINHA É O QUE FALTAVA
+    )
 
-@app.route('/admin/logout', methods=['GET', 'POST'])
-def admin_logout():
-    resp = redirect(url_for('index'))
-    resp.set_cookie('admin_auth', '', expires=0, path='/')
+@app.route('/admin/alterar-senha', methods=['POST'])
+def admin_alterar_senha():
+
+    # só admin logado
+    if request.cookies.get('admin_auth') != '1':
+        return {
+            "success": False,
+            "message": "Acesso negado."
+        }
+
+    senha_atual = request.form.get('senha_atual', '').strip()
+    nova_senha = request.form.get('nova_senha', '').strip()
+    confirmar_senha = request.form.get('confirmar_senha', '').strip()
+
+    # ======================
+    # VALIDAÇÕES
+    # ======================
+
+    if not senha_atual or not nova_senha or not confirmar_senha:
+        return {
+            "success": False,
+            "message": "Preencha todos os campos."
+        }
+
+    if nova_senha != confirmar_senha:
+        return {
+            "success": False,
+            "message": "As senhas não coincidem."
+        }
+
+    if len(nova_senha) < 6:
+        return {
+            "success": False,
+            "message": "A nova senha deve ter pelo menos 6 caracteres."
+        }
+
+    admin_hash = get_setting("admin_password_hash") or ""
+
+    if admin_hash == "":
+        if senha_atual != ADMIN_PASSWORD:
+            return {
+                "success": False,
+                "message": "Senha atual incorreta."
+            }
+    else:
+        if not check_password_hash(admin_hash, senha_atual):
+            return {
+                "success": False,
+                "message": "Senha atual incorreta."
+            }
+
+    # ======================
+    # SALVA NOVA SENHA
+    # ======================
+
+    nova_hash = generate_password_hash(nova_senha)
+
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("""
+        INSERT INTO settings (key, value)
+        VALUES ('admin_password_hash', ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    """, (nova_hash,))
+    db.commit()
+
+    # ======================
+    # SUCESSO
+    # ======================
+
+    resp = make_response({
+        "success": True,
+        "message": "Senha alterada com sucesso. Faça login novamente."
+    })
+
+    # força logout
+    resp.set_cookie('admin_auth', '', expires=0)
     return resp
+
+from flask import abort
+
+# ROTA DE RESET DE SENHA (PÚBLICA, COM TOKEN)
+@app.route('/admin/reset-senha/<token>')
+def admin_reset_senha(token):
+
+    # token inválido = acesso negado
+    if token != ADMIN_RESET_TOKEN:
+        abort(403)
+
+    db = get_db()
+    cur = db.cursor()
+
+    # remove a senha personalizada
+    cur.execute("""
+        DELETE FROM settings
+        WHERE key = 'admin_password_hash'
+    """)
+
+    db.commit()
+
+    return """
+    <h2>Senha resetada com sucesso</h2>
+    <p>Agora você pode logar usando a senha padrão do sistema.</p>
+    <p><strong>Recomenda-se trocar a senha após o login.</strong></p>
+    """
+
+
+
+@app.route("/admin/configuracoes/salvar", methods=["POST"])
+def salvar_configuracoes():
+    # verificação de login admin
+    if request.cookies.get('admin_auth') != '1':
+        return redirect(url_for('admin'))
+
+    db = get_db()
+    cur = db.cursor()
+
+    def set_setting(key, value):
+        cur.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value)
+        )
+
+    # ===== TEXTOS =====
+    whatsapp = request.form.get("whatsapp_number", "")
+    title = request.form.get("site_title", "")
+    description = request.form.get("site_description", "")
+
+    set_setting("whatsapp_number", whatsapp)
+    set_setting("site_title", title)
+    set_setting("site_description", description)
+    # ===== DADOS DA LOJA =====
+    cnpj = request.form.get("cnpj", "")
+    street = request.form.get("address_street", "")
+    number = request.form.get("address_number", "")
+    city = request.form.get("address_city", "")
+    state = request.form.get("address_state", "")
+    set_setting("cnpj", cnpj)
+    set_setting("address_street", street)
+    set_setting("address_number", number)
+    set_setting("address_city", city)
+    set_setting("address_state", state)
+
+
+    # ===== LOGO =====
+    logo_file = request.files.get("logo_file")
+    if logo_file and logo_file.filename:
+        logo_path = f"/static/img/{logo_file.filename}"
+        logo_file.save(f"static/img/{logo_file.filename}")
+        set_setting("logo_path", logo_path)
+
+    # ===== BACKGROUND =====
+    bg_file = request.files.get("background_file")
+    if bg_file and bg_file.filename:
+        bg_path = f"/static/img/{bg_file.filename}"
+        bg_file.save(f"static/img/{bg_file.filename}")
+        set_setting("background_path", bg_path)
+
+    db.commit()
+    return redirect(url_for("admin"))
+
+
+
+@app.route('/admin/logout', methods=['POST'])
+def admin_logout():
+    resp = redirect(url_for('admin'))
+
+    # remove o cookie de autenticação
+    resp.set_cookie(
+        'admin_auth',
+        '',
+        expires=0,
+        path='/'
+    )
+
+    flash('Você saiu do painel administrativo.', 'info')
+    return resp
+
 
 # Produtos CRUD (admin)
 @app.route('/admin/add', methods=['POST'])
@@ -1327,8 +2028,20 @@ def admin_api_novos_pedidos():
 def api_admin_venda_detail(pedido_id):
     if request.cookies.get('admin_auth') != '1':
         return jsonify({'ok': False, 'error': 'Acesso negado'}), 403
+    
     db = get_db()
     cur = db.cursor()
+    
+    # 1. Busca dados do PEDIDO (Cabeçalho)
+    cur.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,))
+    pedido = cur.fetchone()
+    
+    if not pedido:
+        return jsonify({'ok': False, 'error': 'Venda não encontrada'}), 404
+        
+    pedido_dict = dict(pedido)
+
+    # 2. Busca os ITENS
     cur.execute("""
         SELECT 
             ip.produto_id,
@@ -1341,10 +2054,24 @@ def api_admin_venda_detail(pedido_id):
         LEFT JOIN products p ON p.id = ip.produto_id
         WHERE ip.pedido_id = ?
     """, (pedido_id,))
-    row = cur.fetchone()
-    if not row:
-        return jsonify({'ok': False, 'error': 'Venda não encontrada'}), 404
-    return jsonify(dict(row))
+    
+    rows = cur.fetchall()
+    itens = []
+    for r in rows:
+        row = dict(r)
+        try:
+            row["options"] = json.loads(row.get("options") or "{}")
+        except:
+            row["options"] = {}
+        itens.append(row)
+
+    # Retorna tudo junto para o modal usar
+    response = {
+        "pedido": pedido_dict,  # Aqui vai ter o delivery_fee correto
+        "itens": itens
+    }
+    
+    return jsonify(response)
 
 @app.route('/admin/vendas/<int:pedido_id>/itens')
 def admin_venda_itens(pedido_id):
@@ -1391,6 +2118,16 @@ def gerar_nota(pedido_id):
     if request.cookies.get('admin_auth') != '1':
         abort(403)
 
+    settings = load_settings_dict()
+
+    restaurant_name = settings.get("site_title", "Meu Restaurante")
+    store_cnpj = settings.get("cnpj", "")
+    store_address = f"{settings.get('address_street', '')}, {settings.get('address_number', '')}"
+    store_city = f"{settings.get('address_city', '')} - {settings.get('address_state', '')}"
+    restaurant_desc = settings.get("site_description", "")
+    restaurant_phone = settings.get("whatsapp_number", "")
+    logo_path = settings.get("logo_path", "")
+    background_path = settings.get("background_path", "")
     import json
     from datetime import datetime
     from reportlab.lib import colors
@@ -1502,18 +2239,27 @@ def gerar_nota(pedido_id):
     elementos = []
 
     # Logo
-    logo_path = os.path.join("static", "img", "logo.png")
-    if os.path.exists(logo_path):
-        img = Image(logo_path, width=60, height=60)
+    if logo_path:
+        logo_fs = logo_path.lstrip("/")
+    if os.path.exists(logo_fs):
+        img = Image(logo_fs, width=60, height=60)
         img.hAlign = 'CENTER'
         elementos.append(img)
-        elementos.append(Spacer(1, 4))
 
     # Cabeçalho
-    elementos.append(Paragraph("<b>DEV RESTAURANTE</b>", estilo_titulo))
-    elementos.append(Paragraph("CNPJ: 00.000.000/0001-00", estilo_texto))
-    elementos.append(Paragraph("Endereço: Rua Exemplo, 123 - Centro", estilo_texto))
-    elementos.append(Paragraph("Tel: (71) 99999-0000", estilo_texto))
+    elementos.append(Paragraph(f"<b>{restaurant_name}</b>", estilo_titulo))
+    elementos.append(Spacer(1, 6))
+
+    if store_cnpj:
+        elementos.append(Paragraph(f"CNPJ: {store_cnpj}", estilo_texto))
+
+    if store_address.strip(", "):
+        elementos.append(Paragraph(store_address, estilo_texto))
+    if store_city.strip(" -"):
+        elementos.append(Paragraph(store_city, estilo_texto))
+
+    if restaurant_phone:
+        elementos.append(Paragraph(f"Tel: {restaurant_phone}", estilo_texto))
     elementos.append(Spacer(1, 10))
 
     # Infos pedido
@@ -1523,12 +2269,11 @@ def gerar_nota(pedido_id):
     # Data
     try:
         dt = datetime.strptime(pedido.get("data",""), "%Y-%m-%d %H:%M:%S")
-        data_pedido = dt.strftime("%d/%m/%Y — %H:%M")
+        data_pedido = dt.strftime("%d/%m/%Y Às %H:%M")
     except:
         data_pedido = pedido.get("data","")
 
-    elementos.append(Paragraph(f"<b>Data Pedido:</b> {data_pedido}", estilo_texto))
-    elementos.append(Paragraph(f"<b>Emitido em:</b> {now_br().strftime('%d/%m/%Y — %H:%M:%S')}", estilo_texto))
+    elementos.append(Paragraph(f"<b>Pedido Emitido em:</b> {data_pedido}", estilo_texto))
     elementos.append(Paragraph(f"<b>Telefone:</b> {pedido.get('telefone','—')}", estilo_texto))
     elementos.append(Paragraph(f"<b>Endereço:</b> {pedido.get('endereco','—')}", estilo_texto))
     elementos.append(Paragraph(f"<b>Pagamento:</b> {pedido.get('forma_pagamento','—')}", estilo_texto))
@@ -1591,7 +2336,8 @@ def gerar_nota(pedido_id):
     elementos.append(Spacer(1, 15))
 
     elementos.append(Paragraph("Obrigado pela preferência!", estilo_titulo))
-    elementos.append(Paragraph("Sistema NTDEV — www.devrestaurante.com", estilo_texto))
+    elementos.append(Spacer(1, 5))
+    elementos.append(Paragraph("Sistema Desenvolvido Por NTDEV - 71991118924", estilo_texto))
 
     doc.build(elementos)
 

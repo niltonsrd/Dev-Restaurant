@@ -50,6 +50,9 @@ textarea {
   color: #fff;
   cursor: pointer;
 }
+.logout-btn:hover {
+  background-color: #aaa9a9;
+}
 .tabs {
   display: flex;
   gap: 8px;
@@ -64,10 +67,16 @@ textarea {
   cursor: pointer;
   color: var(--muted);
 }
+.tab:hover {
+  background-color: #333;
+}
 .tab.active {
   background: linear-gradient(180deg, var(--primary), var(--primary-dark));
   color: #fff;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.tab.active:hover {
+  background-color: #5e140f;
 }
 main {
   display: grid;
@@ -132,9 +141,15 @@ textarea {
   color: #fff;
   cursor: pointer;
 }
+.btn:hover {
+  background-color: #5e140f;
+}
 .btn.ghost {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.03);
+}
+.btn.ghost:hover {
+  background-color: #333;
 }
 .btn-danger {
   background: #d63031;
@@ -506,19 +521,19 @@ aside.sidebar {
 /* --- MODAL GERENCIAR VARIAÇÕES (COMPLETO) --- */
 
 #modalVariations .modal {
-  max-width: 880px; /* Aumentado para dar mais margem de segurança */
+  max-width: 990px; /* Aumentado para dar mais margem de segurança */
   width: 95%;
 }
 
 .variations-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px; /* REDUZIDO: Este é o principal ajuste para caber no modal */
+  gap: 5px; /* REDUZIDO: Este é o principal ajuste para caber no modal */
   margin-top: 20px;
 }
 
 .variation-card {
-  padding: 10px;
+  padding: 7px;
   background: #1e1e1e; /* Fundo escuro */
   border: 1px solid #333;
   color: #fff;
@@ -543,17 +558,27 @@ aside.sidebar {
 
 /* Faz o input de Nome (texto) crescer e ocupar todo o espaço flexível */
 .input-group input[type="text"] {
-  flex-grow: 1;
+  width: 150px;
+  min-width: 150px;
+}
+
+.input-group input[id="inIngName"] {
+  width: 200px;
+  min-width: 200px;
 }
 
 /* Define uma largura menor e fixa para o campo de preço (R$) */
 .extra-price-input {
-  width: 50px;
-  min-width: 50px; /* Garante que não diminua demais */
+  width: 125px;
+  min-width: 125px; /* Garante que não diminua demais */
 }
 
 .mini-btn {
-  padding: 5px 10px;
+  padding: 10px 15px;
+}
+
+.mini-btn:hover {
+  background-color: #5e140f;
 }
 
 /* Estilo do botão de fechar item */
@@ -571,4 +596,125 @@ aside.sidebar {
   border: none;
   padding: 2px 6px;
   cursor: pointer;
+}
+
+.btn-danger.btn-small:hover {
+  background-color: #5e140f;
+}
+
+/* Overlay */
+#admin-js-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+/* Caixa */
+.admin-js-box {
+  background: #151515;
+  padding: 28px 30px;
+  width: 340px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  animation: adminFadeUp 0.35s ease;
+}
+
+/* Ícone */
+.admin-js-icon {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.admin-js-icon.success {
+  background: rgba(255, 140, 0, 0.15);
+  color: #1eff00;
+  box-shadow: 0 0 15px rgba(0, 255, 115, 0.35);
+}
+
+/* Título */
+.admin-js-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+/* Mensagem */
+.admin-js-message {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #cccccc;
+  margin-bottom: 20px;
+}
+
+/* Botão */
+.admin-js-btn {
+  background: linear-gradient(135deg, #ff8c00, #ff6000);
+  border: none;
+  color: #fff;
+  padding: 10px 28px;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.admin-js-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* Animação */
+@keyframes adminFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-pass-field {
+  position: relative;
+  width: 100%;
+}
+
+.admin-pass-field input {
+  width: 100%;
+  padding-right: 42px;
+}
+
+.admin-pass-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: #aaa;
+  transition: 0.2s ease;
+}
+
+.admin-pass-toggle:hover {
+  color: #ff9800;
+}
+
+.admin-pass-toggle:active {
+  transform: translateY(-50%) scale(0.9);
 }

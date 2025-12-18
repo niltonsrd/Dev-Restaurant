@@ -1,188 +1,192 @@
-🍽️ Sistema de Delivery – Cardápio Online com Itens Personalizáveis + Admin + Nota Fiscal PDF
+# 🍽️ Sistema de Delivery – Cardápio Online Completo com Painel Administrativo
 
-Este projeto é um sistema completo de delivery, com cardápio digital, carrinho, checkout com taxa de entrega por CEP, integração com WhatsApp, suporte a itens personalizáveis, pagamentos (Pix / Dinheiro / Cartão) e painel administrativo para gerenciar pedidos.
+Sistema completo de **delivery online**, desenvolvido em **Python + Flask**, com **cardápio digital**, **carrinho inteligente**, **checkout avançado**, **integração com WhatsApp**, **itens personalizáveis**, **cálculo automático de frete por CEP** e **painel administrativo seguro**.
 
-Ele inclui também a geração de Nota Fiscal térmica em PDF, com descrição detalhada de tamanhos, ingredientes e adicionais.
+O sistema também gera **Nota Fiscal térmica em PDF**, com detalhamento completo dos itens vendidos (tamanhos, ingredientes e adicionais).
 
-🚀 Principais Funcionalidades
-🛒 Cardápio Online
+---
 
-Listagem dinâmica de produtos via /api/products
+## 🚀 Principais Funcionalidades
 
-Filtros por categoria
+### 🛒 Cardápio Online
 
-Itens simples (quantidade + adicionar)
+* Listagem dinâmica de produtos via API (`/api/products`)
+* Filtros por categoria
+* Itens simples (quantidade + adicionar)
+* Itens personalizáveis via modal:
 
-Itens personalizáveis (modal com opções):
+  * Seleção única de tamanho
+  * Seleção única de ingrediente
+  * Seleção múltipla de adicionais
+* Preço final calculado automaticamente
 
-Seleção única de tamanho
+---
 
-Seleção única de ingrediente
+### 🧺 Carrinho Inteligente
 
-Seleção múltipla de adicionais
+* Atualização em tempo real
+* Animação do valor total
+* Agrupamento correto de itens não personalizáveis
+* Resumo completo dos itens selecionados
 
-Preço final calculado automaticamente
+---
 
-🧺 Carrinho
+### 🛵 Cálculo Automático de Frete
 
-Atualização em tempo real
+* Cálculo por CEP com fallback automático:
 
-Animação do total (contador crescente)
+  * BrasilAPI
+  * AwesomeAPI
+  * ApiCEP
+* Caso nenhuma API responda corretamente:
 
-Resumo completo das opções (tamanho, ingredientes, adicionais)
+  * Aplica taxa máxima configurada
+* Cálculo de distância com Haversine + Nominatim
 
-Garantia de que itens não personalizáveis se agrupam corretamente
+---
 
-🛵 Calcular frete automático
+### 💸 Métodos de Pagamento
 
-Cálculo baseado no CEP do cliente usando 3 APIs de fallback:
+* Pix (QR Code automático)
+* Dinheiro (com cálculo de troco)
+* Cartão
 
-BrasilAPI
+---
 
-AwesomeAPI
+### 📄 Painel Administrativo
 
-ApiCEP
+* Login seguro por cookie
+* Listagem completa de pedidos
+* Visualização detalhada dos itens
+* Download da Nota Fiscal térmica em PDF
+* Gerenciamento de produtos e configurações
 
-Se nenhuma retornar corretamente:
+---
 
-É aplicada taxa máxima automaticamente
+### 🔐 Segurança do Painel
 
-Cálculo da distância → fórmula de Haversine + Nominatim.
+* Senha administrativa com hash
+* Alteração de senha via AJAX
+* Validações completas no backend
+* Feedback visual por modal
+* Logout automático após alteração
 
-💸 Métodos de pagamento
+---
 
-Pix (com geração de QR Code)
+### 🧾 Nota Fiscal Térmica em PDF
 
-Dinheiro (com cálculo de troco)
+* Gerada com ReportLab
+* Cabeçalho personalizado
+* Logotipo da empresa
+* Tabela com itens detalhados
+* Subtotal, taxa de entrega e total geral
 
-Cartão
+---
 
-📄 Painel Administrativo
+## 🧰 Tecnologias Utilizadas
 
-Listagem de todos os pedidos
+* Python 3
+* Flask
+* SQLite
+* HTML / CSS / JavaScript
+* ReportLab (PDF)
+* APIs externas de CEP
 
-Modal com itens detalhados
+---
 
-Rota dedicada para itens: /admin/vendas/<id>/itens
+## 🛠️ Instalação
 
-Download da Nota Fiscal PDF térmica
+### 1️⃣ Clone o repositório
 
-Itens personalizados exibem:
-
-Nome correto
-
-Tamanho
-
-Ingredientes
-
-Adicionais com preço
-
-🧾 Nota Fiscal PDF térmica
-
-Gerada via ReportLab, com:
-
-Cabeçalho personalizado
-
-Itens com quebras de linha
-
-Tabela: QTD | ITEM | UNIT | TOTAL
-
-Subtotal, taxa de entrega e total geral
-
-Logotipo da empresa
-
-🧰 Tecnologias Utilizadas
-
-Python 3 + Flask
-
-SQLite
-
-HTML / CSS / JavaScript puro
-
-ReportLab (PDF)
-
-APIs externas de CEP:
-
-BrasilAPI
-
-AwesomeAPI
-
-ApiCEP
-
-Nominatim (Geocoding)
-
-QRServer API (para QR Code Pix)
-
-🛠️ Instalação e Configuração
-1️⃣ Clone o projeto
+```bash
 git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
 cd SEU_REPOSITORIO
+```
 
-2️⃣ Crie um ambiente virtual
+### 2️⃣ Crie o ambiente virtual
+
+```bash
 python -m venv venv
-
+```
 
 Ative:
 
-Windows:
+**Windows**
 
+```bash
 venv\Scripts\activate
+```
 
+**Linux/macOS**
 
-Linux/macOS:
-
+```bash
 source venv/bin/activate
+```
 
-3️⃣ Instale as dependências
+---
+
+### 3️⃣ Instale as dependências
+
+```bash
 pip install -r requirements.txt
+```
 
-4️⃣ Execute o servidor
+---
+
+### 4️⃣ Execute o projeto
+
+```bash
 python app.py
+```
 
+Acesse:
 
-Acesse no navegador:
+* Site: [http://127.0.0.1:5000](http://127.0.0.1:5000)
+* Admin: [http://127.0.0.1:5000/admin](http://127.0.0.1:5000/admin)
 
-http://127.0.0.1:5000
+---
 
+## 📂 Estrutura do Projeto
 
-Admin:
-
-http://127.0.0.1:5000/admin
-
-📂 Estrutura do Projeto
+```
 /static
-    /img
 /templates
-    index.html
-    admin.html
 /database
 app.py
-README.md
-script.js
+requirements.txt
+README_SETUP.md
+```
 
-🧪 Rotas Principais
-▶ Público
+---
 
-/ → cardápio
+## 🧪 Rotas Principais
 
-/api/products → lista de produtos
+### Público
 
-/api/checkout → finalizar compra
+* `/`
+* `/api/products`
+* `/api/checkout`
 
-▶ Admin
+### Admin
 
-/admin → painel
+* `/admin`
+* `/admin/vendas/<id>/itens`
+* `/admin/vendas/<id>/nota`
 
-/admin/vendas/<id>/itens → itens de um pedido
+---
 
-/admin/api/vendas/<id> → detalhe otimizado
+## 🔒 Segurança
 
-/admin/vendas/<id>/nota → nota fiscal em PDF
+* Autenticação por cookie seguro
+* Senhas com hash
+* Validação e sanitização de dados
 
-🔒 Segurança
+---
 
-Painel admin protegido por cookie admin_auth=1
+## 📌 Observações
 
-File uploads (Pix) tratados com segurança
+Projeto desenvolvido com foco em **uso real**, **segurança**, **UX profissional** e **organização de código**.
 
-Sanitização de dados no checkout
+---
+
+🚀 Pronto para produção, estudos ou evolução para SaaS.
