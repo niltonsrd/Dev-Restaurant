@@ -7,26 +7,15 @@
 let cart = [];
 let currentCategory = "Todos";
 let currentDeliveryFee = 0;
+let lastCEPProcessed = null;
+let cepRequestInProgress = false;
+let cepAlreadyCalculated = false;
+let cepAbortController = null;
+
+
+
 
 let deliveryFee = 0;
-
-async function calcularFrete() {
-  const cep = document.getElementById("cep").value;
-
-  if (!cep || cep.length < 8) return;
-
-  const res = await fetch("/api/calcular-frete", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `cep=${encodeURIComponent(cep)}`,
-  });
-
-  const data = await res.json();
-  if (data.ok) {
-    deliveryFee = data.delivery_fee;
-    updateCartUI();
-  }
-}
 
 // ---------------------------
 // DOM refs
@@ -515,15 +504,38 @@ function concatenateAddress() {
 
 if (inputCEP) {
   inputCEP.addEventListener("input", (e) => {
-    let val = e.target.value.replace(/\D/g, "");
-    if (val.length > 5) val = val.substring(0, 5) + "-" + val.substring(5, 8);
-    e.target.value = val.substring(0, 9);
-  });
-  //inputCEP.addEventListener("blur", fetchAddressByCEP);
-  inputCEP.addEventListener("keyup", (e) => {
-    if (e.target.value.replace(/\D/g, "").length === 8) fetchAddressByCEP();
+    let raw = e.target.value.replace(/\D/g, "");
+
+    if (raw.length > 8) raw = raw.slice(0, 8);
+
+    // formatação visual
+    if (raw.length > 5) {
+      e.target.value = raw.slice(0, 5) + "-" + raw.slice(5);
+    } else {
+      e.target.value = raw;
+    }
+
+    // 🧹 limpa SOMENTE se não tiver 8 dígitos
+    if (raw.length < 8) {
+      if (customerStreet) customerStreet.value = "";
+      if (document.getElementById("customerBairro"))
+        document.getElementById("customerBairro").value = "";
+      if (customerAddressInput) customerAddressInput.value = "";
+      lastCEPProcessed = "";
+      return;
+    }
+
+    // 🚀 somente aqui faz a busca
+    if (raw !== lastCEPProcessed) {
+      buscarEnderecoPorCEP(raw);
+    }
   });
 }
+
+
+
+
+
 
 if (customerNumber)
   customerNumber.addEventListener("input", concatenateAddress);
@@ -683,34 +695,6 @@ if (btnCheckout) {
   });
 }
 
-async function buscarEnderecoPorCEP() {
-  const cep = document.getElementById("inputCEP").value.replace(/\D/g, "");
-
-  if (cep.length !== 8) return;
-
-  try {
-    const res = await fetch("/api/buscar-endereco", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `cep=${cep}`,
-    });
-
-    const data = await res.json();
-
-    if (!data.ok) return;
-
-    // Preenche campos automaticamente
-    document.getElementById("inputRua").value = data.logradouro || "";
-    document.getElementById("inputBairro").value = data.bairro || "";
-    document.getElementById("inputCidade").value = data.cidade || "";
-    document.getElementById("inputEstado").value = data.estado || "";
-
-    // chama o cálculo de frete no backend
-    calcularFrete();
-  } catch (e) {
-    console.error("Erro ao buscar endereço:", e);
-  }
-}
 
 function resetCheckout() {
   const maybe = (id) => document.getElementById(id) || { value: "" };
@@ -1195,20 +1179,6 @@ if (configAddBtn) {
   });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  const cepInput = document.getElementById("inputCEP");
-
-  if (!cepInput) return;
-
-  // quando o usuário sair do campo CEP
-  cepInput.addEventListener("blur", () => {
-    const cep = cepInput.value.replace(/\D/g, "");
-
-    if (cep.length !== 8) return;
-
-    calcularFreteBackend(cep);
-  });
-});
 
 function formatCEP(input) {
   let v = input.value.replace(/\D/g, "");
@@ -1221,37 +1191,46 @@ function formatCEP(input) {
   }
 }
 
-async function buscarEnderecoPorCEP() {
-  const cepInput = document.getElementById("inputCEP");
-  if (!cepInput) return;
+async function buscarEnderecoPorCEP(cep) {
+  if (!cep || cep.length !== 8) return;
 
-  const cep = cepInput.value.replace(/\D/g, "");
-  if (cep.length !== 8) return;
+  // cancela requisição anterior se existir
+  if (cepAbortController) {
+    cepAbortController.abort();
+  }
+
+  cepAbortController = new AbortController();
 
   try {
     const res = await fetch("/api/buscar-endereco", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: `cep=${encodeURIComponent(cep)}`,
+      signal: cepAbortController.signal,
     });
 
     const data = await res.json();
     if (!data.ok) return;
 
-    document.getElementById("customerStreet").value = data.logradouro || "";
-    document.getElementById("customerBairro").value = data.bairro || "";
+    // ✅ preenche endereço corretamente
+    if (customerStreet) customerStreet.value = data.logradouro || "";
+    if (document.getElementById("customerBairro"))
+      document.getElementById("customerBairro").value = data.bairro || "";
+    if (customerAddressInput)
+      customerAddressInput.value = data.logradouro || "";
 
-    // Monta endereço base (rua + número depois)
-    document.getElementById("customerAddress").value = data.logradouro || "";
+    lastCEPProcessed = cep;
 
     await calcularFreteBackend();
-
-    // Chama cálculo de frete no backend
-    calcularFreteBackend();
   } catch (err) {
+    if (err.name === "AbortError") return;
     console.error("Erro ao buscar endereço:", err);
   }
 }
+
+
+
+
 
 function mostrarFreteCalculando() {
   const el = document.querySelector(
@@ -1265,12 +1244,10 @@ function mostrarFreteCalculando() {
 
 
 async function calcularFreteBackend() {
-  const cep = document.getElementById("inputCEP").value.replace(/\D/g, "");
+  const cep = inputCEP.value.replace(/\D/g, "");
   if (cep.length !== 8) return;
 
   mostrarFreteCalculando();
-
-  const start = Date.now();
 
   try {
     const res = await fetch("/api/calcular-frete", {
@@ -1280,20 +1257,16 @@ async function calcularFreteBackend() {
     });
 
     const data = await res.json();
+    if (!data.ok) return;
 
-    const elapsed = Date.now() - start;
-    if (elapsed < 500) {
-      await new Promise(r => setTimeout(r, 500 - elapsed));
-    }
-
-    if (data.ok) {
-      currentDeliveryFee = parseFloat(data.delivery_fee);
-      updateSummaryDisplay();
-    }
+    currentDeliveryFee = Number(data.delivery_fee || 0);
+    updateSummaryDisplay();
   } catch (err) {
-    console.error("Erro ao calcular frete:", err);
+    console.error("Erro frete:", err);
   }
 }
+
+
 
 
 

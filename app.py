@@ -473,59 +473,56 @@ def montar_descricao_item(options_json):
 @admin_login_required
 def save_config():
     db = get_db()
-    
-    # 1. Campos de Texto Simples e Loja
-    settings_to_save = {
-        'whatsapp_number': request.form.get('whatsapp_number'),
-        'site_title': request.form.get('site_title'),
-        'site_description': request.form.get('site_description'),
-        'cnpj': request.form.get('cnpj'),
-        'address_street': request.form.get('address_street'),
-        'address_number': request.form.get('address_number'),
-        'address_city': request.form.get('address_city'),
-        'address_state': request.form.get('address_state'),
-        
-        # 🟢 NOVOS CAMPOS DE TAXA DE ENTREGA (Importante: tratar como string e float)
-        'delivery_cep_loja': request.form.get('delivery_cep_loja'),
-        # Os campos float devem ser convertidos. Usa-se .replace(',', '.') para garantir que 
-        # a entrada no banco seja numérica, caso o navegador envie com vírgula.
-        'delivery_taxa_fixa': request.form.get('delivery_taxa_fixa', '0.00').replace(',', '.'),
-        'delivery_preco_km': request.form.get('delivery_preco_km', '0.00').replace(',', '.'),
-        'delivery_taxa_maxima': request.form.get('delivery_taxa_maxima', '0.00').replace(',', '.'),
-    }
 
     try:
-        # Salva todos os campos simples e de taxa de entrega
+        settings_to_save = {
+            'whatsapp_number': request.form.get('whatsapp_number'),
+            'site_title': request.form.get('site_title'),
+            'site_description': request.form.get('site_description'),
+            'cnpj': request.form.get('cnpj'),
+            'address_street': request.form.get('address_street'),
+            'address_number': request.form.get('address_number'),
+            'address_city': request.form.get('address_city'),
+            'address_state': request.form.get('address_state'),
+            'delivery_cep_loja': request.form.get('delivery_cep_loja'),
+            'delivery_taxa_fixa': request.form.get('delivery_taxa_fixa', '0.00').replace(',', '.'),
+            'delivery_preco_km': request.form.get('delivery_preco_km', '0.00').replace(',', '.'),
+            'delivery_taxa_maxima': request.form.get('delivery_taxa_maxima', '0.00').replace(',', '.'),
+        }
+
         for key, value in settings_to_save.items():
             if value is not None:
                 update_setting(db, key, value)
 
-        # 2. Upload de Logo
+        # Upload logo
         logo_file = request.files.get('logo_file')
         if logo_file and allowed_file(logo_file.filename):
             filename = secure_filename(logo_file.filename)
-            file_path = os.path.join(UPLOAD_FOLDER_PRODUCTS, filename)
-            logo_file.save(file_path)
-            # Salva o caminho relativo (ou nome do arquivo) no banco de dados
+            logo_file.save(os.path.join(UPLOAD_FOLDER_PRODUCTS, filename))
             update_setting(db, 'logo_path', url_for('static', filename=f'img/{filename}'))
-        
-        # 3. Upload de Imagem de Fundo
+
+        # Upload background
         background_file = request.files.get('background_file')
         if background_file and allowed_file(background_file.filename):
             filename = secure_filename(background_file.filename)
-            file_path = os.path.join(UPLOAD_FOLDER_PRODUCTS, filename)
-            background_file.save(file_path)
-            # Salva o caminho relativo (ou nome do arquivo) no banco de dados
+            background_file.save(os.path.join(UPLOAD_FOLDER_PRODUCTS, filename))
             update_setting(db, 'background_path', url_for('static', filename=f'img/{filename}'))
 
         db.commit()
-        flash('Configurações salvas com sucesso!', 'success')
+
+        return jsonify({
+            "success": True,
+            "message": "Configurações salvas com sucesso."
+        })
+
     except Exception as e:
         db.rollback()
-        print(f"Erro ao salvar configurações: {e}")
-        flash('Erro ao salvar as configurações. Verifique o log do servidor.', 'error')
+        print("Erro:", e)
+        return jsonify({
+            "success": False,
+            "message": "Erro ao salvar configurações."
+        }), 500
 
-    return redirect(url_for('admin'))    
 
   
 @app.route("/api/buscar-endereco", methods=["POST"])
@@ -1272,57 +1269,69 @@ def admin_reset_senha(token):
 
 @app.route("/admin/configuracoes/salvar", methods=["POST"])
 def salvar_configuracoes():
-    # verificação de login admin
-    if request.cookies.get('admin_auth') != '1':
-        return redirect(url_for('admin'))
+    if request.cookies.get("admin_auth") != "1":
+        return jsonify({
+            "success": False,
+            "message": "Sessão expirada. Faça login novamente."
+        }), 403
 
     db = get_db()
     cur = db.cursor()
 
     def set_setting(key, value):
-        cur.execute(
-            "INSERT INTO settings (key, value) VALUES (?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (key, value)
-        )
+        cur.execute("""
+            INSERT INTO settings (key, value)
+            VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """, (key, value))
 
-    # ===== TEXTOS =====
-    whatsapp = request.form.get("whatsapp_number", "")
-    title = request.form.get("site_title", "")
-    description = request.form.get("site_description", "")
+    try:
+        # ================= TEXTOS =================
+        set_setting("whatsapp_number", request.form.get("whatsapp_number", ""))
+        set_setting("site_title", request.form.get("site_title", ""))
+        set_setting("site_description", request.form.get("site_description", ""))
 
-    set_setting("whatsapp_number", whatsapp)
-    set_setting("site_title", title)
-    set_setting("site_description", description)
-    # ===== DADOS DA LOJA =====
-    cnpj = request.form.get("cnpj", "")
-    street = request.form.get("address_street", "")
-    number = request.form.get("address_number", "")
-    city = request.form.get("address_city", "")
-    state = request.form.get("address_state", "")
-    set_setting("cnpj", cnpj)
-    set_setting("address_street", street)
-    set_setting("address_number", number)
-    set_setting("address_city", city)
-    set_setting("address_state", state)
+        # ================= ENDEREÇO =================
+        set_setting("cnpj", request.form.get("cnpj", ""))
+        set_setting("address_street", request.form.get("address_street", ""))
+        set_setting("address_number", request.form.get("address_number", ""))
+        set_setting("address_city", request.form.get("address_city", ""))
+        set_setting("address_state", request.form.get("address_state", ""))
 
+        # ================= ENTREGA =================
+        set_setting("delivery_cep_loja", request.form.get("delivery_cep_loja", ""))
+        set_setting("delivery_taxa_fixa", request.form.get("delivery_taxa_fixa", "0"))
+        set_setting("delivery_preco_km", request.form.get("delivery_preco_km", "0"))
+        set_setting("delivery_taxa_maxima", request.form.get("delivery_taxa_maxima", "0"))
 
-    # ===== LOGO =====
-    logo_file = request.files.get("logo_file")
-    if logo_file and logo_file.filename:
-        logo_path = f"/static/img/{logo_file.filename}"
-        logo_file.save(f"static/img/{logo_file.filename}")
-        set_setting("logo_path", logo_path)
+        # ================= IMAGENS =================
+        os.makedirs("static/img", exist_ok=True)
 
-    # ===== BACKGROUND =====
-    bg_file = request.files.get("background_file")
-    if bg_file and bg_file.filename:
-        bg_path = f"/static/img/{bg_file.filename}"
-        bg_file.save(f"static/img/{bg_file.filename}")
-        set_setting("background_path", bg_path)
+        logo = request.files.get("logo_file")
+        if logo and logo.filename:
+            filename = secure_filename(logo.filename)
+            logo.save(os.path.join("static", "img", filename))
+            set_setting("logo_path", f"/static/img/{filename}")
 
-    db.commit()
-    return redirect(url_for("admin"))
+        bg = request.files.get("background_file")
+        if bg and bg.filename:
+            filename = secure_filename(bg.filename)
+            bg.save(os.path.join("static", "img", filename))
+            set_setting("background_path", f"/static/img/{filename}")
+
+        db.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Configurações salvas com sucesso."
+        })
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({
+            "success": False,
+            "message": f"Erro ao salvar configurações: {str(e)}"
+        }), 500
 
 
 

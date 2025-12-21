@@ -1,886 +1,777 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Painel Administrativo</title>
-    <link rel="icon" href="{{ settings.logo_path }}" type="image/png" />
 
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/admin.css') }}"
-    />
-  </head>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Administrativo</title>
+  <link rel="icon" href="{{ settings.logo_path }}" type="image/png" />
 
-  <body>
-    <header class="top">
-      <div>
-        <h1>Painel Administrativo — {{ settings.site_title }}</h1>
-        <div class="muted">Área administrativa • {{ settings.site_title }}</div>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+</head>
+
+<body>
+  <header class="top">
+    <div>
+      <h1>Painel Administrativo — {{ settings.site_title }}</h1>
+      <div class="muted">Área administrativa • {{ settings.site_title }}</div>
+    </div>
+
+    <div class="top-right">
+      <div class="tabs" id="tabs">
+        <div class="tab active" data-tab="produtos">Produtos</div>
+        <div class="tab" data-tab="vendas">Vendas</div>
+        <div class="tab" data-tab="config">Configurações</div>
+        <div class="tab" data-tab="relatorios">Relatórios</div>
       </div>
 
-      <div class="top-right">
-        <div class="tabs" id="tabs">
-          <div class="tab active" data-tab="produtos">Produtos</div>
-          <div class="tab" data-tab="vendas">Vendas</div>
-          <div class="tab" data-tab="config">Configurações</div>
-          <div class="tab" data-tab="relatorios">Relatórios</div>
-        </div>
+      <form method="POST" action="/admin/logout" style="margin-left: 10px">
+        <button class="logout-btn">Sair</button>
+      </form>
+    </div>
+  </header>
 
-        <form method="POST" action="/admin/logout" style="margin-left: 10px">
-          <button class="logout-btn">Sair</button>
-        </form>
-      </div>
-    </header>
+  <main>
+    <section id="content-area">
+      <div id="produtos" class="card">
+        <h2>🍽️ Gerenciar Produtos</h2>
 
-    <main>
-      <section id="content-area">
-        <div id="produtos" class="card">
-          <h2>🍽️ Gerenciar Produtos</h2>
+        <!-- ====== Formulário — agora com tamanhos, ingredientes e adicionais dinâmicos ====== -->
+        <div class="add-box card">
+          <h3>➕ Adicionar Novo Produto</h3>
+          <form action="/admin/add" method="POST" enctype="multipart/form-data" id="formAdd">
+            <input type="text" name="name" placeholder="Nome" required />
 
-          <!-- ====== Formulário — agora com tamanhos, ingredientes e adicionais dinâmicos ====== -->
-          <div class="add-box card">
-            <h3>➕ Adicionar Novo Produto</h3>
-            <form
-              action="/admin/add"
-              method="POST"
-              enctype="multipart/form-data"
-              id="formAdd"
-            >
-              <input type="text" name="name" placeholder="Nome" required />
+            <div style="display: flex; gap: 8px">
+              <input type="number" name="price" placeholder="Preço base (R$)" step="0.01" required />
 
-              <div style="display: flex; gap: 8px">
-                <input
-                  type="number"
-                  name="price"
-                  placeholder="Preço base (R$)"
-                  step="0.01"
-                  required
-                />
-
-                <select name="category" required style="min-width: 180px">
-                  <option value="">Categoria</option>
-                  {% for c in categorias %}
-                  <option value="{{ c.name }}">{{ c.name }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-
-              <textarea name="description" placeholder="Descrição"></textarea>
-              <input type="file" name="image" accept="image/*" />
-
-              <div style="margin-top: 8px">
-                <label>
-                  <input
-                    type="checkbox"
-                    name="customizable"
-                    value="1"
-                    id="customizableCB"
-                  />
-                  Produto personalizável (habilita tamanhos / ingredientes /
-                  adicionais)
-                </label>
-              </div>
-
-              <!-- Controles de personalização (visíveis somente se checkbox marcado) -->
-              <div id="customOptions" style="display: none; margin-top: 12px">
-                <div class="section-box">
-                  <strong>Tamanhos (opcionais)</strong>
-                  <div id="sizesContainer" style="margin-top: 8px"></div>
-                  <div style="margin-top: 8px">
-                    <button
-                      type="button"
-                      class="btn ghost mini-btn"
-                      onclick="addSizeField()"
-                    >
-                      + Adicionar tamanho
-                    </button>
-                    <span class="small-muted">
-                      Ex: Pequena +0, Média +5.00, Família +12.00</span
-                    >
-                  </div>
-                </div>
-
-                <div class="section-box">
-                  <strong>Ingredientes (checkbox)</strong>
-                  <div id="ingredientsContainer" style="margin-top: 8px"></div>
-                  <div style="margin-top: 8px">
-                    <button
-                      type="button"
-                      class="btn ghost mini-btn"
-                      onclick="addIngredientField()"
-                    >
-                      + Novo ingrediente
-                    </button>
-                    <span class="small-muted"
-                      >Ingredientes serão salvos no banco e podem ser
-                      reutilizados</span
-                    >
-                  </div>
-                </div>
-
-                <div class="section-box">
-                  <strong>Adicionais (opcionais)</strong>
-                  <div id="extrasContainer" style="margin-top: 8px"></div>
-                  <div style="margin-top: 8px">
-                    <button
-                      type="button"
-                      class="btn ghost mini-btn"
-                      onclick="addExtraField()"
-                    >
-                      + Adicionar adicional
-                    </button>
-                    <span class="small-muted"
-                      >Adicionais cobram valor extra por item</span
-                    >
-                  </div>
-                </div>
-              </div>
-
-              <div style="display: flex; gap: 8px; margin-top: 12px">
-                <button class="btn" type="submit">Adicionar</button>
-                <button
-                  class="btn ghost"
-                  type="button"
-                  onclick="document.getElementById('formAdd').reset(); hideCustomOptions();"
-                >
-                  Limpar
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <!-- modal de pedido (mantido) -->
-          <div id="modalNovoPedido">
-            <div class="box">
-              <h2>📦 Novo Pedido Recebido!</h2>
-              <p id="pedidoModalTexto"></p>
-              <button onclick="abrirVendasPorModal()">Ver Pedido</button>
-            </div>
-          </div>
-
-          <div id="newOrderAlert"></div>
-
-          <!-- ===== Lista de produtos ===== -->
-          <h3 style="margin-top: 14px">📦 Produtos Cadastrados</h3>
-          <div class="grid" id="productGrid">
-            {% for p in products %}
-            <div class="product-card">
-              <img
-                src="/static/img/{{ p.image }}"
-                alt="{{ p.name }}"
-                onerror="this.src='/static/img/default.png'"
-              />
-              <div class="product-body">
-                <div
-                  style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: start;
-                  "
-                >
-                  <div>
-                    <div style="font-weight: 700">{{ p.name }}</div>
-                    <div class="muted">{{ p.category }}</div>
-                    {% if p.customizable %}
-                    <div class="small-muted">Personalizável</div>
-                    {% endif %}
-                  </div>
-                  <div style="text-align: right">
-                    <div style="font-weight: 700">
-                      R$ {{ '%.2f'|format(p.price) }}
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style="margin-top: 8px; color: var(--muted); font-size: 13px"
-                >
-                  {{ p.description }}
-                </div>
-              </div>
-
-              <div class="card-actions">
-                <button
-                  class="btn ghost"
-                  onclick="openEdit('{{ p.id }}','{{ p.name }}','{{ p.price }}','{{ p.category }}',`{{ p.description }}`)"
-                >
-                  Editar
-                </button>
-
-                <button
-                  class="btn ghost"
-                  onclick="openVariations('{{ p.id }}')"
-                >
-                  Gerenciar
-                </button>
-
-                <form
-                  action="/admin/delete/{{ p.id }}"
-                  method="POST"
-                  style="display: inline"
-                >
-                  <button class="btn btn-danger">Excluir</button>
-                </form>
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-        </div>
-
-        <!-- resto das tabs (vendas / relatorios / config) mantidos sem grandes alterações -->
-        <div id="vendas" class="card" style="display: none">
-          <h2>🛒 Vendas</h2>
-
-          <div class="vendas-filters">
-            <input
-              type="text"
-              id="searchCliente"
-              placeholder="Buscar por cliente ou ID"
-            />
-            <input type="date" id="dateFrom" />
-            <input type="date" id="dateTo" />
-            <select id="filterStatus">
-              <option value="">Todos status</option>
-              <option value="pendente">Pendente</option>
-              <option value="concluido">Concluído</option>
-            </select>
-            <button class="btn" onclick="loadVendas()">Atualizar</button>
-          </div>
-
-          <div style="overflow: auto">
-            <table class="table" id="vendasTable">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Cliente</th>
-                  <th>Total</th>
-                  <th>Pagamento</th>
-                  <th>Data</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="vendasBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div id="relatorios" class="card" style="display: none">
-                   
-          <h2>📊 Relatórios de Vendas</h2>
-
-                             
-          <div class="mb-4" style="margin-bottom: 15px">
-                       
-            <button
-              class="btn btn-primary active"
-              id="btn-diario"
-              data-periodo="diario"
-            >
-                            Hoje            
-            </button>
-                       
-            <button class="btn ghost" id="btn-semanal" data-periodo="semanal">
-                            Últimos 7 dias            
-            </button>
-                       
-            <button class="btn ghost" id="btn-mensal" data-periodo="mensal">
-                            Últimos 30 dias            
-            </button>
-
-            <div style="margin-top: 20px; margin-bottom: 20px">
-              <button class="btn btn-danger" id="btn-download-pdf">
-                ⬇️ Baixar Relatório Detalhado em (CSV/Excel)
-              </button>
-            </div>
-                     
-          </div>
-                                     
-          <div
-            class="row-cards"
-            style="display: flex; gap: 15px; flex-wrap: wrap"
-          >
-                                   
-            <div
-              class="card shadow border-success py-2"
-              style="flex: 1; min-width: 250px; padding: 15px"
-            >
-                           
-              <div
-                class="text-xs font-weight-bold text-success text-uppercase mb-1"
-              >
-                                Total Arrecadado (<span id="periodo-texto"
-                  >Hoje</span
-                >)              
-              </div>
-                           
-              <div
-                class="h5 mb-0 font-weight-bold text-gray-800"
-                id="total-arrecadado"
-                style="font-size: 1.5em; font-weight: bold"
-              >
-                                Carregando...              
-              </div>
-                         
-            </div>
-                                           
-            <div
-              class="card shadow border-info py-2"
-              style="flex: 1; min-width: 250px; padding: 15px"
-            >
-                           
-              <div
-                class="text-xs font-weight-bold text-info text-uppercase mb-1"
-              >
-                                Total de Pedidos (<span id="periodo-texto-2"
-                  >Hoje</span
-                >)              
-              </div>
-                           
-              <div
-                class="h5 mb-0 font-weight-bold text-gray-800"
-                id="total-vendas"
-                style="font-size: 1.5em; font-weight: bold"
-              >
-                                Carregando...              
-              </div>
-                         
-            </div>
-                     
-          </div>
-                                     
-          <div style="margin-top: 15px">
-                       
-            <p class="muted" id="data-inicio-relatorio">
-              Dados a partir de: Carregando...
-            </p>
-                       
-          </div>
-                 
-        </div>
-
-        <div id="config" class="card" style="display: none">
-          <h2>⚙️ Configurações</h2>
-          <div class="muted">
-            Gerencie as informações e aparência do sistema
-          </div>
-
-          <form
-            id="configForm"
-            action="/admin/configuracoes/salvar"
-            method="POST"
-            enctype="multipart/form-data"
-            style="margin-top: 16px; display: grid; gap: 16px"
-          >
-            <!-- 📱 CONFIGURAÇÕES BÁSICAS -->
-            <div class="card">
-              <h3>📱 Básico do Site</h3>
-
-              <div style="display: grid; gap: 10px">
-                <label class="small">Telefone para WhatsApp</label>
-                <input
-                  type="text"
-                  name="whatsapp_number"
-                  value="{{ settings.whatsapp_number }}"
-                />
-
-                <label class="small">Título do Restaurante</label>
-                <input
-                  type="text"
-                  name="site_title"
-                  value="{{ settings.site_title }}"
-                />
-
-                <label class="small">Descrição</label>
-                <textarea name="site_description" style="min-height: 70px">
-{{ settings.site_description }}</textarea
-                >
-              </div>
+              <select name="category" required style="min-width: 180px">
+                <option value="">Categoria</option>
+                {% for c in categorias %}
+                <option value="{{ c.name }}">{{ c.name }}</option>
+                {% endfor %}
+              </select>
             </div>
 
-            <!-- 🏪 DADOS DA LOJA -->
-            <div class="card">
-              <h3>🏪 Dados da Loja</h3>
+            <textarea name="description" placeholder="Descrição"></textarea>
+            <input type="file" name="image" accept="image/*" />
 
-              <div
-                style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px"
-              >
-                <div>
-                  <label>CNPJ</label>
-                  <input
-                    type="text"
-                    name="cnpj"
-                    value="{{ settings.cnpj or '' }}"
-                  />
+            <div style="margin-top: 8px">
+              <label>
+                <input type="checkbox" name="customizable" value="1" id="customizableCB" />
+                Produto personalizável (habilita tamanhos / ingredientes /
+                adicionais)
+              </label>
+            </div>
+
+            <!-- Controles de personalização (visíveis somente se checkbox marcado) -->
+            <div id="customOptions" style="display: none; margin-top: 12px">
+              <div class="section-box">
+                <strong>Tamanhos (opcionais)</strong>
+                <div id="sizesContainer" style="margin-top: 8px"></div>
+                <div style="margin-top: 8px">
+                  <button type="button" class="btn ghost mini-btn" onclick="addSizeField()">
+                    + Adicionar tamanho
+                  </button>
+                  <span class="small-muted">
+                    Ex: Pequena +0, Média +5.00, Família +12.00</span>
                 </div>
+              </div>
 
-                <div>
-                  <label>Estado</label>
-                  <input
-                    type="text"
-                    name="address_state"
-                    value="{{ settings.address_state or '' }}"
-                  />
+              <div class="section-box">
+                <strong>Ingredientes (checkbox)</strong>
+                <div id="ingredientsContainer" style="margin-top: 8px"></div>
+                <div style="margin-top: 8px">
+                  <button type="button" class="btn ghost mini-btn" onclick="addIngredientField()">
+                    + Novo ingrediente
+                  </button>
+                  <span class="small-muted">Ingredientes serão salvos no banco e podem ser
+                    reutilizados</span>
                 </div>
+              </div>
 
-                <div style="grid-column: span 2">
-                  <label>Rua</label>
-                  <input
-                    type="text"
-                    name="address_street"
-                    value="{{ settings.address_street or '' }}"
-                  />
-                </div>
-
-                <div>
-                  <label>Número</label>
-                  <input
-                    type="text"
-                    name="address_number"
-                    value="{{ settings.address_number or '' }}"
-                  />
-                </div>
-
-                <div>
-                  <label>Cidade</label>
-                  <input
-                    type="text"
-                    name="address_city"
-                    value="{{ settings.address_city or '' }}"
-                  />
+              <div class="section-box">
+                <strong>Adicionais (opcionais)</strong>
+                <div id="extrasContainer" style="margin-top: 8px"></div>
+                <div style="margin-top: 8px">
+                  <button type="button" class="btn ghost mini-btn" onclick="addExtraField()">
+                    + Adicionar adicional
+                  </button>
+                  <span class="small-muted">Adicionais cobram valor extra por item</span>
                 </div>
               </div>
             </div>
 
-            <!-- 🖼️ IDENTIDADE VISUAL -->
-            <div class="card">
-              <h3>🖼️ Identidade Visual</h3>
-
-              <div
-                style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px"
-              >
-                <div>
-                  <label class="small">Logo atual</label>
-                  <img
-                    src="{{ settings.logo_path }}"
-                    style="height: 80px; display: block; margin-bottom: 8px"
-                  />
-                  <input type="file" name="logo_file" accept="image/*" />
-                </div>
-
-                <div>
-                  <label class="small">Imagem de fundo</label>
-                  <img
-                    src="{{ settings.background_path }}"
-                    style="height: 80px; display: block; margin-bottom: 8px"
-                  />
-                  <input type="file" name="background_file" accept="image/*" />
-                </div>
-              </div>
-            </div>
-
-            <!-- 🚚 TAXA DE ENTREGA -->
-            <div class="card">
-              <h3>🚚 Taxa de Entrega</h3>
-
-              <div
-                style="
-                  display: grid;
-                  grid-template-columns: repeat(2, 1fr);
-                  gap: 10px;
-                "
-              >
-                <div>
-                  <label>CEP da Loja</label>
-                  <input
-                    type="text"
-                    name="delivery_cep_loja"
-                    value="{{ settings.delivery_cep_loja }}"
-                  />
-                </div>
-
-                <div>
-                  <label>Taxa fixa (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="delivery_taxa_fixa"
-                    value="{{ settings.delivery_taxa_fixa }}"
-                  />
-                </div>
-
-                <div>
-                  <label>Preço por KM (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="delivery_preco_km"
-                    value="{{ settings.delivery_preco_km }}"
-                  />
-                </div>
-
-                <div>
-                  <label>Taxa máxima (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="delivery_taxa_maxima"
-                    value="{{ settings.delivery_taxa_maxima }}"
-                  />
-                </div>
-              </div>
-
-              <div class="small-muted" style="margin-top: 8px">
-                O valor será calculado automaticamente com base na distância.
-              </div>
-            </div>
-
-            <!-- 💾 AÇÕES -->
-            <div style="display: flex; gap: 10px">
-              <button class="btn" type="submit">Salvar Configurações</button>
-              <button
-                class="btn ghost"
-                type="button"
-                onclick="location.reload()"
-              >
-                Cancelar
+            <div style="display: flex; gap: 8px; margin-top: 12px">
+              <button class="btn" type="submit">Adicionar</button>
+              <button class="btn ghost" type="button"
+                onclick="document.getElementById('formAdd').reset(); hideCustomOptions();">
+                Limpar
               </button>
             </div>
           </form>
+        </div>
 
-          <div class="card" style="margin-top: 16px">
-            <h3>🔐 Segurança do Painel</h3>
-
-            <form
-              id="admin-change-password-form"
-              style="display: grid; gap: 10px; margin-top: 10px"
-            >
-              <label class="small">Senha atual</label>
-              <div class="admin-pass-field">
-                <input
-                  type="password"
-                  name="senha_atual"
-                  id="senha_atual"
-                  required
-                />
-                <button
-                  type="button"
-                  class="admin-pass-toggle"
-                  onclick="toggleAdminPassword('senha_atual', this)"
-                >
-                  👁
-                </button>
-              </div>
-
-              <label class="small">Nova senha</label>
-              <div class="admin-pass-field">
-                <input
-                  type="password"
-                  name="nova_senha"
-                  id="nova_senha"
-                  required
-                />
-                <button
-                  type="button"
-                  class="admin-pass-toggle"
-                  onclick="toggleAdminPassword('nova_senha', this)"
-                >
-                  👁
-                </button>
-              </div>
-
-              <label class="small">Confirmar nova senha</label>
-              <div class="admin-pass-field">
-                <input
-                  type="password"
-                  name="confirmar_senha"
-                  id="confirmar_senha"
-                  required
-                />
-                <button
-                  type="button"
-                  class="admin-pass-toggle"
-                  onclick="toggleAdminPassword('confirmar_senha', this)"
-                >
-                  👁
-                </button>
-              </div>
-
-              <button class="btn" type="submit">Alterar senha</button>
-
-              <div class="small-muted">
-                Após alterar a senha, você será deslogado automaticamente.
-              </div>
-            </form>
+        <!-- modal de pedido (mantido) -->
+        <div id="modalNovoPedido">
+          <div class="box">
+            <h2>📦 Novo Pedido Recebido!</h2>
+            <p id="pedidoModalTexto"></p>
+            <button onclick="abrirVendasPorModal()">Ver Pedido</button>
           </div>
+        </div>
 
-          <!-- 🏷️ CATEGORIAS -->
-          <div class="card" style="margin-top: 20px">
-            <h3>🏷️ Categorias de Produtos</h3>
-            <div class="muted">
-              Gerencie as categorias utilizadas nos produtos
+        <div id="newOrderAlert"></div>
+
+        <!-- ===== Lista de produtos ===== -->
+        <h3 style="margin-top: 14px">📦 Produtos Cadastrados</h3>
+        <div class="grid" id="productGrid">
+          {% for p in products %}
+          <div class="product-card">
+            <img src="/static/img/{{ p.image }}" alt="{{ p.name }}" onerror="this.src='/static/img/default.png'" />
+            <div class="product-body">
+              <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: start;
+                  ">
+                <div>
+                  <div style="font-weight: 700">{{ p.name }}</div>
+                  <div class="muted">{{ p.category }}</div>
+                  {% if p.customizable %}
+                  <div class="small-muted">Personalizável</div>
+                  {% endif %}
+                </div>
+                <div style="text-align: right">
+                  <div style="font-weight: 700">
+                    R$ {{ '%.2f'|format(p.price) }}
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top: 8px; color: var(--muted); font-size: 13px">
+                {{ p.description }}
+              </div>
             </div>
 
-            <form
-              action="/admin/categories/add"
-              method="POST"
-              style="display: flex; gap: 8px; margin-top: 10px"
-            >
-              <input
-                type="text"
-                name="nome"
-                placeholder="Nova categoria..."
-                required
-                style="flex: 1"
-              />
-              <button class="btn">Adicionar</button>
-            </form>
+            <div class="card-actions">
+              <button class="btn ghost"
+                onclick="openEdit('{{ p.id }}','{{ p.name }}','{{ p.price }}','{{ p.category }}',`{{ p.description }}`)">
+                Editar
+              </button>
 
-            <ul style="list-style: none; padding: 0; margin-top: 12px">
-              {% for c in categorias %}
-              <li
-                style="
-                  display: flex;
-                  justify-content: space-between;
-                  padding: 6px 0;
-                  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-                "
-              >
-                <span>{{ c.name }}</span>
-                <form
-                  action="/admin/categories/delete/{{ c.id }}"
-                  method="POST"
-                >
-                  <button class="btn btn-danger mini-btn">Excluir</button>
-                </form>
-              </li>
-              {% else %}
-              <li class="muted">Nenhuma categoria cadastrada</li>
-              {% endfor %}
-            </ul>
+              <button class="btn ghost" onclick="openVariations('{{ p.id }}')">
+                Gerenciar
+              </button>
+
+              <form action="/admin/delete/{{ p.id }}" method="POST" style="display: inline">
+                <button class="btn btn-danger">Excluir</button>
+              </form>
+            </div>
           </div>
+          {% endfor %}
         </div>
-      </section>
+      </div>
 
-      <aside class="sidebar">
-        <div class="card">
-          <h3>Resumo</h3>
-          <div class="muted">Vendas (últimas 24h)</div>
-          <div id="resumo24" style="margin-top: 8px; font-weight: 700">—</div>
-          <div style="height: 10px"></div>
-          <h4>Pesquisar venda</h4>
-          <input
-            type="text"
-            id="quickSearch"
-            placeholder="Pesquisar por cliente ou ID"
-          />
-          <button class="btn" style="margin-top: 8px" onclick="quickSearch()">
-            Buscar
-          </button>
-        </div>
+      <!-- resto das tabs (vendas / relatorios / config) mantidos sem grandes alterações -->
+      <div id="vendas" class="card" style="display: none">
+        <h2>🛒 Vendas</h2>
 
-        <div class="card">
-          <h3>Ações</h3>
-          <button class="btn" onclick="loadVendas()">Atualizar vendas</button>
-          <button class="btn ghost" onclick="openTab('produtos')">
-            Ir para Produtos
-          </button>
-        </div>
-      </aside>
-    </main>
-
-    <!-- modal editar produto (mantido) -->
-    <div class="modal-bg" id="modalEdit">
-      <div class="modal">
-        <h3>Editar Produto</h3>
-        <form id="editForm" method="POST" enctype="multipart/form-data">
-          <input type="text" id="editName" name="name" required />
-          <input
-            type="number"
-            id="editPrice"
-            name="price"
-            step="0.01"
-            required
-          />
-          <select id="editCategory" name="category" required>
-            {% for c in categorias %}
-            <option value="{{ c.name }}">{{ c.name }}</option>
-            {% endfor %}
+        <div class="vendas-filters">
+          <input type="text" id="searchCliente" placeholder="Buscar por cliente ou ID" />
+          <input type="date" id="dateFrom" />
+          <input type="date" id="dateTo" />
+          <select id="filterStatus">
+            <option value="">Todos status</option>
+            <option value="pendente">Pendente</option>
+            <option value="concluido">Concluído</option>
           </select>
+          <button class="btn" onclick="loadVendas()">Atualizar</button>
+        </div>
 
-          <textarea id="editDescription" name="description"></textarea>
-          <label style="margin-top: 10px">Nova imagem (opcional)</label>
-          <input type="file" name="image" />
-          <div style="display: flex; gap: 8px; margin-top: 12px">
-            <button class="btn" type="submit">Salvar alterações</button>
-            <button class="btn btn-danger" type="button" onclick="closeEdit()">
+        <div style="overflow: auto">
+          <table class="table" id="vendasTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Cliente</th>
+                <th>Total</th>
+                <th>Pagamento</th>
+                <th>Data</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="vendasBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="relatorios" class="card" style="display: none">
+                 
+        <h2>📊 Relatórios de Vendas</h2>
+
+                           
+        <div class="mb-4" style="margin-bottom: 15px">
+                     
+          <button class="btn btn-primary active" id="btn-diario" data-periodo="diario">
+                          Hoje            
+          </button>
+                     
+          <button class="btn ghost" id="btn-semanal" data-periodo="semanal">
+                          Últimos 7 dias            
+          </button>
+                     
+          <button class="btn ghost" id="btn-mensal" data-periodo="mensal">
+                          Últimos 30 dias            
+          </button>
+
+          <div style="margin-top: 20px; margin-bottom: 20px">
+            <button class="btn btn-danger" id="btn-download-pdf">
+              ⬇️ Baixar Relatório Detalhado em (CSV/Excel)
+            </button>
+          </div>
+                   
+        </div>
+                                   
+        <div class="row-cards" style="display: flex; gap: 15px; flex-wrap: wrap">
+                                 
+          <div class="card shadow border-success py-2" style="flex: 1; min-width: 250px; padding: 15px">
+                         
+            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                              Total Arrecadado (<span id="periodo-texto">Hoje</span>)              
+            </div>
+                         
+            <div class="h5 mb-0 font-weight-bold text-gray-800" id="total-arrecadado"
+              style="font-size: 1.5em; font-weight: bold">
+                              Carregando...              
+            </div>
+                       
+          </div>
+                                         
+          <div class="card shadow border-info py-2" style="flex: 1; min-width: 250px; padding: 15px">
+                         
+            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                              Total de Pedidos (<span id="periodo-texto-2">Hoje</span>)              
+            </div>
+                         
+            <div class="h5 mb-0 font-weight-bold text-gray-800" id="total-vendas"
+              style="font-size: 1.5em; font-weight: bold">
+                              Carregando...              
+            </div>
+                       
+          </div>
+                   
+        </div>
+                                   
+        <div style="margin-top: 15px">
+                     
+          <p class="muted" id="data-inicio-relatorio">
+            Dados a partir de: Carregando...
+          </p>
+                     
+        </div>
+               
+      </div>
+
+      <div id="config" class="card" style="display: none">
+        <h2>⚙️ Configurações</h2>
+        <div class="muted">
+          Gerencie as informações e aparência do sistema
+        </div>
+
+        <form id="configForm" action="/admin/configuracoes/salvar" method="POST" enctype="multipart/form-data"
+          style="margin-top: 16px; display: grid; gap: 16px">
+          <!-- 📱 CONFIGURAÇÕES BÁSICAS -->
+          <div class="card">
+            <h3>📱 Básico do Site</h3>
+
+            <div style="display: grid; gap: 10px">
+              <label class="small">Telefone para WhatsApp</label>
+              <input type="text" name="whatsapp_number" value="{{ settings.whatsapp_number }}" />
+
+              <label class="small">Título do Restaurante</label>
+              <input type="text" name="site_title" value="{{ settings.site_title }}" />
+
+              <label class="small">Descrição</label>
+              <textarea name="site_description" style="min-height: 70px">
+{{ settings.site_description }}</textarea>
+            </div>
+          </div>
+
+          <!-- 🏪 DADOS DA LOJA -->
+          <div class="card">
+            <h3>🏪 Dados da Loja</h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+              <div>
+                <label>CNPJ</label>
+                <input type="text" name="cnpj" value="{{ settings.cnpj or '' }}" />
+              </div>
+
+              <div>
+                <label>Estado</label>
+                <input type="text" name="address_state" value="{{ settings.address_state or '' }}" />
+              </div>
+
+              <div style="grid-column: span 2">
+                <label>Rua</label>
+                <input type="text" name="address_street" value="{{ settings.address_street or '' }}" />
+              </div>
+
+              <div>
+                <label>Número</label>
+                <input type="text" name="address_number" value="{{ settings.address_number or '' }}" />
+              </div>
+
+              <div>
+                <label>Cidade</label>
+                <input type="text" name="address_city" value="{{ settings.address_city or '' }}" />
+              </div>
+            </div>
+          </div>
+
+          <!-- 🖼️ IDENTIDADE VISUAL -->
+          <div class="card">
+            <h3>🖼️ Identidade Visual</h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+              <div>
+                <label class="small">Logo atual</label>
+                <img src="{{ settings.logo_path }}" style="height: 80px; display: block; margin-bottom: 8px" />
+                <input type="file" name="logo_file" accept="image/*" />
+              </div>
+
+              <div>
+                <label class="small">Imagem de fundo</label>
+                <img src="{{ settings.background_path }}" style="height: 80px; display: block; margin-bottom: 8px" />
+                <input type="file" name="background_file" accept="image/*" />
+              </div>
+            </div>
+          </div>
+
+          <!-- 🚚 TAXA DE ENTREGA -->
+          <div class="card">
+            <h3>🚚 Taxa de Entrega</h3>
+
+            <div style="
+                  display: grid;
+                  grid-template-columns: repeat(2, 1fr);
+                  gap: 10px;
+                ">
+              <div>
+                <label>CEP da Loja</label>
+                <input type="text" name="delivery_cep_loja" value="{{ settings.delivery_cep_loja }}" />
+              </div>
+
+              <div>
+                <label>Taxa fixa (R$)</label>
+                <input type="number" step="0.01" name="delivery_taxa_fixa" value="{{ settings.delivery_taxa_fixa }}" />
+              </div>
+
+              <div>
+                <label>Preço por KM (R$)</label>
+                <input type="number" step="0.01" name="delivery_preco_km" value="{{ settings.delivery_preco_km }}" />
+              </div>
+
+              <div>
+                <label>Taxa máxima (R$)</label>
+                <input type="number" step="0.01" name="delivery_taxa_maxima"
+                  value="{{ settings.delivery_taxa_maxima }}" />
+              </div>
+            </div>
+
+            <div class="small-muted" style="margin-top: 8px">
+              O valor será calculado automaticamente com base na distância.
+            </div>
+          </div>
+
+          <!-- 💾 AÇÕES -->
+          <div style="display: flex; gap: 10px">
+            <button class="btn" type="submit">Salvar Configurações</button>
+            <button class="btn ghost" type="button" onclick="location.reload()">
               Cancelar
             </button>
           </div>
         </form>
-      </div>
-    </div>
 
-    <div class="modal-bg" id="modalVenda">
-      <div class="modal" id="modalVendaInner">
-        <h3>Detalhes da Venda <span id="vendaIdTitle"></span></h3>
-        <div id="vendaInfo" class="small muted"></div>
-        <div class="items" id="vendaItems"></div>
+        <div class="card" style="margin-top: 16px">
+          <h3>🔐 Segurança do Painel</h3>
 
-        <div style="display: flex; gap: 8px; margin-top: 12px">
-          <button class="btn" id="btnDownloadNota">Baixar Nota (PDF)</button>
-          <button class="btn" id="btnMarcar">Marcar como Concluído</button>
-          <button class="btn ghost" onclick="closeVendaModal()">Fechar</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-bg" id="modalVariations" style="display: none">
-      <div class="modal" id="variationsModalInner">
-        <h3>
-          Gerenciar Item <span id="varProductId" style="display: none"></span>
-        </h3>
-        <p class="muted">Adicione ou remova opções deste produto.</p>
-
-        <div class="variations-grid">
-          <div class="card variation-card">
-            <h4>📏 Tamanhos</h4>
-            <div id="listSizes" class="scroll-list"></div>
-            <div class="input-group">
-              <input type="text" id="inSizeName" placeholder="Ex: Grande" />
-
-              <input
-                type="number"
-                id="inSizePrice"
-                step="0.01"
-                placeholder="Preço extra (R$)"
-                class="extra-price-input"
-              />
-
-              <button onclick="addVariation('size')" class="btn mini-btn">
-                +
+          <form id="admin-change-password-form" style="display: grid; gap: 10px; margin-top: 10px">
+            <label class="small">Senha atual</label>
+            <div class="admin-pass-field">
+              <input type="password" name="senha_atual" id="senha_atual" required />
+              <button type="button" class="admin-pass-toggle" onclick="toggleAdminPassword('senha_atual', this)">
+                👁
               </button>
             </div>
-          </div>
 
-          <div class="card variation-card">
-            <h4>🍕 Sabores</h4>
-            <div id="listIngredients" class="scroll-list"></div>
-            <div class="input-group">
-              <input type="text" id="inIngName" placeholder="Ex: Queijo" />
-              <button onclick="addVariation('ingredient')" class="btn mini-btn">
-                +
+            <label class="small">Nova senha</label>
+            <div class="admin-pass-field">
+              <input type="password" name="nova_senha" id="nova_senha" required />
+              <button type="button" class="admin-pass-toggle" onclick="toggleAdminPassword('nova_senha', this)">
+                👁
               </button>
             </div>
-          </div>
 
-          <div class="card variation-card">
-            <h4>🥓 Adicionais (Extras)</h4>
-            <div id="listExtras" class="scroll-list"></div>
-            <div class="input-group">
-              <input type="text" id="inExtraName" placeholder="Nome" />
-              <input
-                type="number"
-                id="inExtraPrice"
-                placeholder="R$"
-                class="extra-price-input"
-              />
-              <button onclick="addVariation('extra')" class="btn mini-btn">
-                +
+            <label class="small">Confirmar nova senha</label>
+            <div class="admin-pass-field">
+              <input type="password" name="confirmar_senha" id="confirmar_senha" required />
+              <button type="button" class="admin-pass-toggle" onclick="toggleAdminPassword('confirmar_senha', this)">
+                👁
               </button>
             </div>
-          </div>
+
+            <button class="btn" type="submit">Alterar senha</button>
+
+            <div class="small-muted">
+              Após alterar a senha, você será deslogado automaticamente.
+            </div>
+          </form>
         </div>
 
-        <button
-          onclick="closeVariations()"
-          class="btn ghost"
-          style="margin-top: 20px; width: 100%"
-        >
-          Fechar
+        <!-- 🏷️ CATEGORIAS -->
+        <div class="card" style="margin-top: 20px">
+          <h3>🏷️ Categorias de Produtos</h3>
+          <div class="muted">
+            Gerencie as categorias utilizadas nos produtos
+          </div>
+
+          <form action="/admin/categories/add" method="POST" style="display: flex; gap: 8px; margin-top: 10px">
+            <input type="text" name="nome" placeholder="Nova categoria..." required style="flex: 1" />
+            <button class="btn">Adicionar</button>
+          </form>
+
+          <ul style="list-style: none; padding: 0; margin-top: 12px">
+            {% for c in categorias %}
+            <li style="
+                  display: flex;
+                  justify-content: space-between;
+                  padding: 6px 0;
+                  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                ">
+              <span>{{ c.name }}</span>
+              <form action="/admin/categories/delete/{{ c.id }}" method="POST">
+                <button class="btn btn-danger mini-btn">Excluir</button>
+              </form>
+            </li>
+            {% else %}
+            <li class="muted">Nenhuma categoria cadastrada</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <div class="card">
+        <h3>Resumo</h3>
+        <div class="muted">Vendas (últimas 24h)</div>
+        <div id="resumo24" style="margin-top: 8px; font-weight: 700">—</div>
+        <div style="height: 10px"></div>
+        <h4>Pesquisar venda</h4>
+        <input type="text" id="quickSearch" placeholder="Pesquisar por cliente ou ID" />
+        <button class="btn" style="margin-top: 8px" onclick="quickSearch()">
+          Buscar
         </button>
       </div>
+
+      <div class="card">
+        <h3>Ações</h3>
+        <button class="btn" onclick="loadVendas()">Atualizar vendas</button>
+        <button class="btn ghost" onclick="openTab('produtos')">
+          Ir para Produtos
+        </button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- modal editar produto (mantido) -->
+  <div class="modal-bg" id="modalEdit">
+    <div class="modal">
+      <h3>Editar Produto</h3>
+      <form id="editForm" method="POST" enctype="multipart/form-data">
+        <input type="text" id="editName" name="name" required />
+        <input type="number" id="editPrice" name="price" step="0.01" required />
+        <select id="editCategory" name="category" required>
+          {% for c in categorias %}
+          <option value="{{ c.name }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+
+        <textarea id="editDescription" name="description"></textarea>
+        <label style="margin-top: 10px">Nova imagem (opcional)</label>
+        <input type="file" name="image" />
+        <div style="display: flex; gap: 8px; margin-top: 12px">
+          <button class="btn" type="submit">Salvar alterações</button>
+          <button class="btn btn-danger" type="button" onclick="closeEdit()">
+            Cancelar
+          </button>
+        </div>
+      </form>
     </div>
+  </div>
 
-    <div id="admin-js-modal" style="display: none">
-      <div class="admin-js-box">
-        <div id="admin-js-icon" class="admin-js-icon">✔</div>
+  <div class="modal-bg" id="modalVenda">
+    <div class="modal" id="modalVendaInner">
+      <h3>Detalhes da Venda <span id="vendaIdTitle"></span></h3>
+      <div id="vendaInfo" class="small muted"></div>
+      <div class="items" id="vendaItems"></div>
 
-        <div id="admin-js-title" class="admin-js-title"></div>
-
-        <div class="admin-js-message" id="admin-js-message"></div>
-
-        <button class="admin-js-btn" onclick="fecharAdminModal()">OK</button>
+      <div style="display: flex; gap: 8px; margin-top: 12px">
+        <button class="btn" id="btnDownloadNota">Baixar Nota (PDF)</button>
+        <button class="btn" id="btnMarcar">Marcar como Concluído</button>
+        <button class="btn ghost" onclick="closeVendaModal()">Fechar</button>
       </div>
     </div>
+  </div>
 
-    <script>
-      const form = document.getElementById("admin-change-password-form");
-      let redirectAfterClose = false;
+  <div class="modal-bg" id="modalVariations" style="display: none">
+    <div class="modal" id="variationsModalInner">
+      <h3>
+        Gerenciar Item <span id="varProductId" style="display: none"></span>
+      </h3>
+      <p class="muted">Adicione ou remova opções deste produto.</p>
 
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
+      <div class="variations-grid">
+        <div class="card variation-card">
+          <h4>📏 Tamanhos</h4>
+          <div id="listSizes" class="scroll-list"></div>
+          <div class="input-group">
+            <input type="text" id="inSizeName" placeholder="Ex: Grande" />
 
-        const formData = new FormData(form);
+            <input type="number" id="inSizePrice" step="0.01" placeholder="Preço extra (R$)"
+              class="extra-price-input" />
 
-        const res = await fetch("/admin/alterar-senha", {
-          method: "POST",
-          body: formData,
+            <button onclick="addVariation('size')" class="btn mini-btn">
+              +
+            </button>
+          </div>
+        </div>
+
+        <div class="card variation-card">
+          <h4>🍕 Sabores</h4>
+          <div id="listIngredients" class="scroll-list"></div>
+          <div class="input-group">
+            <input type="text" id="inIngName" placeholder="Ex: Queijo" />
+            <button onclick="addVariation('ingredient')" class="btn mini-btn">
+              +
+            </button>
+          </div>
+        </div>
+
+        <div class="card variation-card">
+          <h4>🥓 Adicionais (Extras)</h4>
+          <div id="listExtras" class="scroll-list"></div>
+          <div class="input-group">
+            <input type="text" id="inExtraName" placeholder="Nome" />
+            <input type="number" id="inExtraPrice" placeholder="R$" class="extra-price-input" />
+            <button onclick="addVariation('extra')" class="btn mini-btn">
+              +
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="closeVariations()" class="btn ghost" style="margin-top: 20px; width: 100%">
+        Fechar
+      </button>
+    </div>
+  </div>
+
+  <div id="admin-js-modal" style="display: none">
+    <div class="admin-js-box">
+      <div id="admin-js-icon" class="admin-js-icon">✔</div>
+
+      <div id="admin-js-title" class="admin-js-title"></div>
+
+      <div class="admin-js-message" id="admin-js-message"></div>
+
+      <button class="admin-js-btn" onclick="fecharAdminModal()">OK</button>
+    </div>
+  </div>
+
+ <script>
+  /* ================= MODAL UNIVERSAL ================= */
+  let redirectAfterClose = false;
+  let lastActionType = null;
+
+  function abrirAdminModal({ message, success, type }) {
+    lastActionType = type;
+    const modal = document.getElementById("admin-js-modal");
+    const icon = document.getElementById("admin-js-icon");
+    const title = document.getElementById("admin-js-title");
+    const msg = document.getElementById("admin-js-message");
+
+    msg.innerText = message || "";
+
+    if (success) {
+      icon.innerText = "✔";
+      icon.className = "admin-js-icon success";
+
+      if (type === "senha") {
+        title.innerText = "Senha alterada com sucesso";
+      } else if (type === "config") {
+        title.innerText = "Configurações salvas";
+      } else {
+        title.innerText = "Operação realizada com sucesso";
+      }
+
+      redirectAfterClose = (type === "senha" || type === "config");
+    } else {
+      icon.innerText = "✖";
+      icon.className = "admin-js-icon error";
+
+      if (type === "senha") {
+        title.innerText = "Erro ao alterar senha";
+      } else if (type === "config") {
+        title.innerText = "Erro ao salvar configurações";
+      } else {
+        title.innerText = "Erro";
+      }
+
+      redirectAfterClose = false;
+    }
+
+    modal.style.display = "flex";
+  }
+
+  function fecharAdminModal() {
+  document.getElementById("admin-js-modal").style.display = "none";
+
+  if (!redirectAfterClose) return;
+
+  // senha → volta para login/admin
+  if (redirectAfterClose && lastActionType === "senha") {
+    window.location.href = "/admin";
+  }
+
+  // config → recarrega a página
+  if (redirectAfterClose && lastActionType === "config") {
+    window.location.reload();
+  }
+}
+
+  /* ================= FETCH JSON SEGURO ================= */
+  async function fetchJSON(url, options = {}) {
+    const res = await fetch(url, options);
+    const contentType = res.headers.get("content-type") || "";
+
+    let data = null;
+
+    if (contentType.includes("application/json")) {
+      data = await res.json();
+    } else {
+      data = {
+        success: false,
+        message: "Resposta inválida do servidor."
+      };
+    }
+
+    return { res, data };
+  }
+
+  /* ================= FORM CONFIGURAÇÕES ================= */
+  const formConfig = document.getElementById("configForm");
+
+  if (formConfig) {
+    formConfig.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const btn = formConfig.querySelector("button[type='submit']");
+      btn.disabled = true;
+      btn.innerText = "Salvando...";
+
+      try {
+        const { res, data } = await fetchJSON(
+          "/admin/configuracoes/salvar",
+          {
+            method: "POST",
+            body: new FormData(formConfig)
+          }
+        );
+
+        if (res.ok && data.success) {
+          abrirAdminModal({
+            message: data.message || "Configurações salvas com sucesso.",
+            success: true,
+            type: "config"
+          });
+        } else {
+          abrirAdminModal({
+            message: data.message || "Erro ao salvar configurações.",
+            success: false,
+            type: "config"
+          });
+        }
+      } catch {
+        abrirAdminModal({
+          message: "Erro de conexão com o servidor.",
+          success: false,
+          type: "config"
         });
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Salvar Configurações";
+      }
+    });
+  }
 
-        const data = await res.json();
+  /* ================= FORM SENHA ================= */
+  const formSenha = document.getElementById("admin-change-password-form");
 
-        abrirAdminModal(data.message, data.success);
-      });
+  if (formSenha) {
+    formSenha.addEventListener("submit", async (e) => {
+      e.preventDefault();
 
-      function abrirAdminModal(msg, isSuccess) {
-        const modal = document.getElementById("admin-js-modal");
-        const icon = document.getElementById("admin-js-icon");
-        const title = document.getElementById("admin-js-title");
-        const message = document.getElementById("admin-js-message");
+      try {
+        const { res, data } = await fetchJSON(
+          "/admin/alterar-senha",
+          {
+            method: "POST",
+            body: new FormData(formSenha)
+          }
+        );
 
-        message.innerText = msg;
-
-        if (isSuccess) {
-          icon.innerText = "✔";
-          icon.className = "admin-js-icon success";
-          title.innerText = "Senha alterada com sucesso";
-          redirectAfterClose = true;
+        if (res.ok && data.success) {
+          abrirAdminModal({
+            message: data.message || "Senha alterada com sucesso.",
+            success: true,
+            type: "senha"
+          });
         } else {
-          icon.innerText = "✖";
-          icon.className = "admin-js-icon error";
-          title.innerText = "Erro ao alterar senha";
-          redirectAfterClose = false;
+          abrirAdminModal({
+            message: data.message || "Erro ao alterar senha.",
+            success: false,
+            type: "senha"
+          });
         }
-
-        modal.style.display = "flex";
+      } catch {
+        abrirAdminModal({
+          message: "Erro de conexão com o servidor.",
+          success: false,
+          type: "senha"
+        });
       }
+    });
+  }
 
-      function fecharAdminModal() {
-        document.getElementById("admin-js-modal").style.display = "none";
+  /* ================= VISIBILIDADE SENHA ================= */
+  function toggleAdminPassword(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
 
-        if (redirectAfterClose) {
-          window.location.href = "/admin";
-        }
-      }
+    const isPassword = input.type === "password";
+    input.type = isPassword ? "text" : "password";
+    btn.innerText = isPassword ? "🙈" : "👁";
+  }
+</script>
 
-      function toggleAdminPassword(inputId, btn) {
-        const input = document.getElementById(inputId);
 
-        if (!input) return;
 
-        if (input.type === "password") {
-          input.type = "text";
-          btn.innerText = "🙈";
-        } else {
-          input.type = "password";
-          btn.innerText = "👁";
-        }
-      }
-    </script>
+  <script src="{{ url_for('static', filename='js/admin_relatorios.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
 
-    <script src="{{ url_for('static', filename='js/admin_relatorios.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
-  </body>
 </html>
