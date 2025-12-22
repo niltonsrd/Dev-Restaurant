@@ -130,6 +130,27 @@ def update_setting(db, key, value):
         (key, value)
     )
 
+def get_distancia_real_km(origem, destino):
+    # origem e destino = (lat, lon)
+    lat1, lon1 = origem
+    lat2, lon2 = destino
+
+    url = (
+        f"https://router.project-osrm.org/route/v1/driving/"
+        f"{lon1},{lat1};{lon2},{lat2}"
+        "?overview=false"
+    )
+
+    r = requests.get(url)
+    data = r.json()
+
+    if data.get("code") != "Ok":
+        raise Exception("Erro ao calcular rota")
+
+    distancia_metros = data["routes"][0]["distance"]
+    return distancia_metros / 1000  # km
+
+
 # =============================
 # Inicializar tabela de settings
 # =============================
@@ -609,7 +630,7 @@ def calcular_frete():
             c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
             return R * c
 
-        distancia_km = haversine(loja[0], loja[1], cliente[0], cliente[1])
+        distancia_km = get_distancia_real_km(loja, cliente)
 
         taxa = taxa_fixa + (distancia_km * preco_km)
         taxa = min(taxa, taxa_maxima)
