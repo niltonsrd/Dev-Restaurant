@@ -40,18 +40,24 @@ def is_admin_logged_in():
     return session.get('admin_logged_in', False)
 
 def admin_login_required(f):
-    """
-    Decorador que garante que a rota só pode ser acessada por um
-    administrador logado.
-    """
     @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not is_admin_logged_in():
-            # Redireciona para a página de login e exibe uma mensagem
-            flash('Você precisa estar logado para acessar esta página.', 'error')
-            return redirect(url_for('admin_login'))
+    def decorated(*args, **kwargs):
+
+        # 🔥 AQUI ESTÁ A CHAVE
+        if request.cookies.get("admin_auth") != "1":
+
+            # Se for fetch / AJAX → JSON
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({
+                    "success": False,
+                    "message": "Sessão expirada. Faça login novamente."
+                }), 401
+
+            # Navegação normal → redirect
+            return redirect(url_for("admin_login"))
+
         return f(*args, **kwargs)
-    return decorated_function
+    return decorated
 
 # -----------------------
 # CONFIG

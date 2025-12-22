@@ -594,83 +594,77 @@
 
  <script>
   /* ================= MODAL UNIVERSAL ================= */
-  let redirectAfterClose = false;
-  let lastActionType = null;
+
 
   function abrirAdminModal({ message, success, type }) {
-    lastActionType = type;
-    const modal = document.getElementById("admin-js-modal");
-    const icon = document.getElementById("admin-js-icon");
-    const title = document.getElementById("admin-js-title");
-    const msg = document.getElementById("admin-js-message");
+  const modal = document.getElementById("admin-js-modal");
+  const icon = document.getElementById("admin-js-icon");
+  const title = document.getElementById("admin-js-title");
+  const msg = document.getElementById("admin-js-message");
 
-    msg.innerText = message || "";
+  msg.innerText = message || "";
 
-    if (success) {
-      icon.innerText = "✔";
-      icon.className = "admin-js-icon success";
+  if (success) {
+    icon.innerText = "✔";
+    icon.className = "admin-js-icon success";
 
-      if (type === "senha") {
-        title.innerText = "Senha alterada com sucesso";
-      } else if (type === "config") {
-        title.innerText = "Configurações salvas";
-      } else {
-        title.innerText = "Operação realizada com sucesso";
-      }
-
-      redirectAfterClose = (type === "senha" || type === "config");
+    if (type === "senha") {
+      title.innerText = "Senha alterada com sucesso";
+    } else if (type === "config") {
+      title.innerText = "Configurações salvas";
     } else {
-      icon.innerText = "✖";
-      icon.className = "admin-js-icon error";
-
-      if (type === "senha") {
-        title.innerText = "Erro ao alterar senha";
-      } else if (type === "config") {
-        title.innerText = "Erro ao salvar configurações";
-      } else {
-        title.innerText = "Erro";
-      }
-
-      redirectAfterClose = false;
+      title.innerText = "Sucesso";
     }
-
-    modal.style.display = "flex";
+  } else {
+    icon.innerText = "✖";
+    icon.className = "admin-js-icon error";
+    title.innerText = "Erro";
   }
 
-  function fecharAdminModal() {
-  document.getElementById("admin-js-modal").style.display = "none";
+  modal.style.display = "flex";
 
-  if (!redirectAfterClose) return;
-
-  // senha → volta para login/admin
-  if (redirectAfterClose && lastActionType === "senha") {
-    window.location.href = "/admin";
+  // 🔥 AQUI ESTÁ A CORREÇÃO DEFINITIVA
+  if (success && type === "config") {
+    setTimeout(() => window.location.reload(), 800);
   }
 
-  // config → recarrega a página
-  if (redirectAfterClose && lastActionType === "config") {
-    window.location.reload();
+  if (success && type === "senha") {
+    setTimeout(() => window.location.href = "/admin", 800);
   }
 }
 
+
+  function fecharAdminModal() {
+  document.getElementById("admin-js-modal").style.display = "none";
+}
+
+
   /* ================= FETCH JSON SEGURO ================= */
-  async function fetchJSON(url, options = {}) {
-    const res = await fetch(url, options);
-    const contentType = res.headers.get("content-type") || "";
+async function fetchJSON(url, options = {}) {
+  const res = await fetch(url, {
+    credentials: "same-origin",
+    headers: {
+      "X-Requested-With": "XMLHttpRequest"
+    },
+    ...options
+  });
 
-    let data = null;
+  const contentType = res.headers.get("content-type") || "";
 
-    if (contentType.includes("application/json")) {
-      data = await res.json();
-    } else {
-      data = {
-        success: false,
-        message: "Resposta inválida do servidor."
-      };
-    }
-
-    return { res, data };
+  let data;
+  if (contentType.includes("application/json")) {
+    data = await res.json();
+  } else {
+    data = {
+      success: false,
+      message: "Resposta inválida do servidor."
+    };
   }
+
+  return { res, data };
+}
+
+
 
   /* ================= FORM CONFIGURAÇÕES ================= */
   const formConfig = document.getElementById("configForm");
