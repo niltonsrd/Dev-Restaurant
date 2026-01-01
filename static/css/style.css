@@ -108,8 +108,8 @@ header {
 }
 
 .logo {
-  width: 58px;
-  height: 58px;
+  width: 100px;
+  height: auto;
   object-fit: cover;
   border-radius: var(--radius-m);
   box-shadow: var(--shadow-m);

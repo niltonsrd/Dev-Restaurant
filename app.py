@@ -30,6 +30,78 @@ from functools import wraps # ⬅️ GARANTA QUE ISTO ESTÁ IMPORTADO TAMBÉM
 
 ADMIN_RESET_TOKEN = "ntdev"
 
+# =============================
+# Função get_db
+# =============================
+def get_db():
+    if not hasattr(g, "_db"):
+        g._db = sqlite3.connect(DATABASE_FILE)
+        g._db.row_factory = sqlite3.Row
+    return g._db
+
+# ===============================
+# STATUS PADRÃO DO PEDIDO
+# ===============================
+STATUS_VALIDOS = [
+    "pendente",       # pedido criado no site
+    "recebido",       # operador confirmou
+    "preparando",     # em preparo
+    "saiu_entrega",   # saiu para entrega
+    "concluido",      # entregue
+    "cancelado"       # cancelado (opcional)
+]
+
+# ===============================
+# STATUS QUE DISPARAM WHATSAPP
+# ===============================
+STATUS_NOTIFICAVEIS = {
+    "recebido": "mensagem_recebido",
+    "saiu_entrega": "mensagem_saiu_entrega"
+}
+
+
+def alterar_status_pedido(pedido_id, novo_status,):
+    """
+    Altera o status de um pedido no SQLite
+    Retorna True se alterou
+    Retorna False se o status já era o mesmo
+    """
+
+    # 1. Validação do status
+    if novo_status not in STATUS_VALIDOS:
+        raise ValueError("Status inválido")
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # 2. Busca status atual
+    cursor.execute(
+        "SELECT status FROM pedidos WHERE id = ?",
+        (pedido_id,)
+    )
+    pedido = cursor.fetchone()
+
+    if not pedido:
+        raise ValueError("Pedido não encontrado")
+
+    # 3. Evita atualização duplicada
+    if pedido["status"] == novo_status:
+        return False
+
+    # 4. Atualiza status e data
+    cursor.execute("""
+        UPDATE pedidos
+        SET status = ?, data = ?
+        WHERE id = ?
+    """, (
+        novo_status,
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        pedido_id
+    ))
+
+    conn.commit()
+    return True
+
 
 # --------------------------
 # AUXILIARES DE ADMIN
@@ -80,16 +152,10 @@ os.makedirs(UPLOAD_FOLDER_PIX, exist_ok=True)
 os.makedirs(NOTAS_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
+app.config['JSON_AS_ASCII'] = False
 app.secret_key = os.environ.get('FLASK_SECRET', 'dev-secret')
 
-# =============================
-# Função get_db
-# =============================
-def get_db():
-    if not hasattr(g, "_db"):
-        g._db = sqlite3.connect(DATABASE_FILE)
-        g._db.row_factory = sqlite3.Row
-    return g._db
+
 
 def get_admin_user():
     return get_setting("admin_user") or "admin"
@@ -254,6 +320,8 @@ app.config['UPLOAD_FOLDER_PRODUCTS'] = UPLOAD_FOLDER_PRODUCTS
 app.config['UPLOAD_FOLDER_PIX'] = UPLOAD_FOLDER_PIX
 app.config['NOTAS_FOLDER'] = NOTAS_FOLDER
 app.config['PROPAGATE_EXCEPTIONS'] = True
+
+
 
 # 🟢 GLOBAL TIMEZONE SETUP (Função utilitária para obter a hora de Brasília)
 def now_br():
@@ -971,7 +1039,7 @@ def api_checkout():
 
     # formatar para URL
     raw_text = "\n".join(lines)
-    encoded_text = quote(raw_text)
+    encoded_text = quote(raw_text.encode("utf-8"))
 
     whatsapp_url = f"https://api.whatsapp.com/send?phone={restaurant_phone}&text={encoded_text}"
 
@@ -2059,6 +2127,7 @@ def admin_api_novos_pedidos():
     # Se não houver novidade
     return jsonify({'novo': False})
 
+
 # NOVA ROTA: Obter detalhes de UMA única venda (Otimização do JS)
 @app.route('/admin/api/vendas/<int:pedido_id>')
 def api_admin_venda_detail(pedido_id):
@@ -2385,17 +2454,90 @@ def gerar_nota(pedido_id):
 @app.route('/admin/vendas/<int:pedido_id>/status', methods=['POST'])
 def api_update_venda_status(pedido_id):
     if request.cookies.get('admin_auth') != '1':
-        return jsonify({'ok': False, 'error': 'Acesso negado'}), 403
+        return jsonify(success=False, message='Acesso negado'), 403
+
     try:
-        data = request.get_json() or {}
-        status = data.get('status', 'pendente')
+        data = request.get_json(force=True)
+
+        novo_status = data.get('status')
+        tempo_preparo = data.get('tempo_preparo')
+
+        if novo_status not in STATUS_VALIDOS:
+            return jsonify(success=False, message='Status inválido'), 400
+
         db = get_db()
         cur = db.cursor()
-        cur.execute("UPDATE pedidos SET status = ? WHERE id = ?", (status, pedido_id))
+
+        cur.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,))
+        pedido = cur.fetchone()
+
+        if not pedido:
+            return jsonify(success=False, message='Pedido não encontrado'), 404
+
+        if pedido['status'] == novo_status:
+            return jsonify(success=True, message='Status já estava atualizado')
+
+        agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        if novo_status == "recebido":
+            if not tempo_preparo:
+                return jsonify(success=False, message='Tempo de preparo obrigatório'), 400
+
+            cur.execute("""
+                UPDATE pedidos
+                SET status = ?, tempo_preparo = ?, data = ?
+                WHERE id = ?
+            """, (
+                novo_status,
+                int(tempo_preparo),
+                agora,
+                pedido_id
+            ))
+        else:
+            cur.execute("""
+                UPDATE pedidos
+                SET status = ?, data = ?
+                WHERE id = ?
+            """, (
+                novo_status,
+                agora,
+                pedido_id
+            ))
+
         db.commit()
-        return jsonify({'ok': True})
+
+        # 🔥 MENSAGEM WHATSAPP (backend)
+        mensagem = None
+
+        if novo_status == "recebido":
+            mensagem = (
+                f"🍽️ *Pedido confirmado!*\n\n"
+                f"Olá {pedido['nome_cliente']}, recebemos seu pedido e ele já está em preparo.\n"
+                f"⏱️ Tempo estimado: {tempo_preparo} minutos.\n\n"
+                f"Qualquer dúvida, estamos à disposição 😊"
+            )
+
+        elif novo_status == "saiu_entrega":
+            mensagem = (
+                f"🚚 *Pedido a caminho!*\n\n"
+                f"Olá {pedido['nome_cliente']}, seu pedido já saiu para entrega.\n"
+                f"🛵 Em breve chegará até você!\n\n"
+                f"Obrigado pela preferência 🙌"
+            )
+
+        return jsonify(
+            success=True,
+            status=novo_status,
+            notificar=mensagem is not None,
+            mensagem=mensagem,
+            telefone=pedido['telefone']
+        )
+
     except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
+        return jsonify(success=False, message=str(e)), 500
+
+
+
 
 @app.route('/admin/vendas/<int:pedido_id>', methods=['DELETE'])
 def api_delete_venda(pedido_id):

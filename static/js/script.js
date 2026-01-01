@@ -785,7 +785,7 @@ function openConfigureModal(product_id, name, base_price, qty = 1, image = "") {
 
   if (!configureModal) return;
 
-  configProductTitle.textContent = `Configurando: ${name}`;
+  configProductTitle.textContent = `Pedido: ${name}`;
   configBasePrice.textContent = `R$ ${formatCurrency(base_price)}`;
   configQtyInput.value = qty || 1;
   configOptionsContainer.innerHTML = "<p>Carregando opções...</p>";
