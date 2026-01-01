@@ -70,21 +70,16 @@
               <textarea name="description" placeholder="Descrição"></textarea>
               <input type="file" name="image" accept="image/*" />
 
-              <div style="margin-top: 8px">
-                <label>
-                  <input
-                    type="checkbox"
-                    name="customizable"
-                    value="1"
-                    id="customizableCB"
-                  />
-                  Produto personalizável (habilita tamanhos / ingredientes /
-                  adicionais)
-                </label>
-              </div>
+<div style="margin-top: 15px">
+  <label class="switch-container">
+    <input type="checkbox" name="customizable" value="1" id="customizableCB" />
+    <span class="slider"></span>
+    <span class="label-text">Produto Personalizável (Habilita Tamanhos / Ingredientes / Adicionais)</span>
+  </label>
+</div>
 
               <!-- Controles de personalização (visíveis somente se checkbox marcado) -->
-              <div id="customOptions" style="display: none; margin-top: 12px">
+              <div id="customOptions">
                 <div class="section-box">
                   <strong>Tamanhos (opcionais)</strong>
                   <div id="sizesContainer" style="margin-top: 8px"></div>

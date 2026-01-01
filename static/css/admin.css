@@ -258,8 +258,6 @@ aside.sidebar {
 }
 
 
-
-
 @keyframes slideIn {
   from {
     transform: translateY(40px) scale(0.8);
@@ -882,6 +880,11 @@ table.table td:first-child::before {
     font-size: 12px;
   }
 
+    .section-box {
+     gap: 20px;
+     justify-items: auto;
+     justify-content: space-between;
+    }
     .site-logo {
         height: 60px;
         max-width: 150px;
@@ -946,6 +949,78 @@ table.table td:first-child::before {
   }
 }
 
+#customOptions {
+    display: none; /* Esconde por padrão */
+    margin-top: 15px;
+}
+
+/* Container que agrupa o switch e o texto */
+.switch-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  width: auto !important; /* Impede de esticar 100% */
+  cursor: pointer;
+  padding: 5px 0;
+}
+
+/* Esconde o checkbox real, mas mantém ele funcional */
+.switch-container input[type="checkbox"] {
+  position: absolute !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+}
+
+/* O corpo do Switch (trilho) */
+.slider {
+  position: relative !important;
+  display: inline-block !important;
+  width: 44px !important;
+  height: 22px !important;
+  background-color: #333 !important; /* Cor quando desligado */
+  border-radius: 22px !important;
+  transition: 0.3s !important;
+  flex-shrink: 0 !important; /* Garante que não amasse */
+  border: 1px solid #444 !important;
+}
+
+/* A bolinha do Switch */
+.slider:before {
+  content: "" !important;
+  position: absolute !important;
+  height: 16px !important;
+  width: 16px !important;
+  left: 3px !important;
+  bottom: 2px !important;
+  background-color: white !important;
+  border-radius: 50% !important;
+  transition: 0.3s !important;
+}
+
+/* Estilo quando LIGADO */
+.switch-container input:checked + .slider {
+  background-color: #ff4500 !important; /* Laranja do seu botão */
+  border-color: #ff4500 !important;
+}
+
+/* Move a bolinha quando LIGADO */
+.switch-container input:checked + .slider:before {
+  transform: translateX(22px) !important;
+}
+
+/* Ajuste do texto lateral */
+.label-text {
+  width: auto !important;
+  display: inline !important;
+  font-size: 14px !important;
+  color: #eee !important;
+  line-height: 1.4 !important;
+  max-width: 80%; /* Evita que o texto quebre o layout em telas mini */
+}
+
 /* =========================================================
    FIX DEFINITIVO — CONFIGURAÇÕES MOBILE (APP MODE)
    ========================================================= */
@@ -964,6 +1039,12 @@ table.table td:first-child::before {
     height: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
+  }
+  .small-muted {
+    display: flex !important;
+    gap: 20px !important;
+    margin-top: 10px !important;
+    margin-bottom: 15px !important;
   }
 
   /* BASE */
@@ -1108,3 +1189,82 @@ table.table td:first-child::before {
     gap: 12px !important;
 }
 
+/* Remove a largura total apenas dos checkboxes para que fiquem ao lado do texto */
+.add-box input[type="checkbox"],
+.section-inline input[type="checkbox"] {
+    width: auto !important;
+    display: inline-block !important;
+    margin-right: 8px; /* Espaço entre o quadradinho e o texto */
+    cursor: pointer;
+}
+
+/* Garante que o container do checkbox alinhe os itens horizontalmente */
+.add-box label, 
+.section-inline label {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+}
+
+/* Container do Switch - Blindagem Total */
+.switch-container {
+    display: flex !important;
+    flex-direction: row !important; /* Força horizontal */
+    align-items: center !important;
+    gap: 12px !important;
+    width: auto !important; /* Impede que ocupe 100% */
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+
+/* Esconde o checkbox original */
+.switch-container input[type="checkbox"] {
+    display: none !important; /* Remove o original da vista */
+}
+
+/* O trilho do switch */
+.slider {
+    position: relative !important;
+    display: inline-block !important;
+    width: 44px !important;   /* Largura fixa */
+    height: 22px !important;  /* Altura fixa */
+    background-color: #333 !important; /* Cor desligado */
+    border-radius: 22px !important;
+    transition: 0.3s !important;
+    flex-shrink: 0 !important; /* Não deixa achatar */
+    border: 1px solid #555 !important;
+}
+
+/* A bolinha */
+.slider:before {
+    position: absolute !important;
+    content: "" !important;
+    height: 16px !important;
+    width: 16px !important;
+    left: 3px !important;
+    bottom: 2px !important;
+    background-color: white !important;
+    border-radius: 50% !important;
+    transition: 0.3s !important;
+}
+
+/* Estado Marcado (Ligado) */
+input:checked + .slider {
+    background-color: #ff4500 !important; /* Laranja */
+    border-color: #ff4500 !important;
+}
+
+/* Move a bolinha quando marcado */
+input:checked + .slider:before {
+    transform: translateX(20px) !important;
+}
+
+/* Ajuste do texto ao lado */
+.label-text {
+    display: inline-block !important;
+    width: auto !important;
+    color: #eee !important;
+    font-size: 14px !important;
+    line-height: 1.2 !important;
+}
