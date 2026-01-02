@@ -27,9 +27,16 @@ function openTab(name) {
     name === "relatorios" ? "block" : "none";
   document.getElementById("config").style.display =
     name === "config" ? "block" : "none";
+  document.getElementById("promocoes").style.display =
+    name === "promocoes" ? "block" : "none";
 
   // 3. Executa funções específicas da aba
   if (name === "vendas") loadVendas();
+  if (name === "promocoes") {
+    carregarProdutosPromocao();
+    carregarPromocoes();
+  }
+
 
   // 4. Dispara o evento de mudança de aba (para notificar o admin_relatorios.js) // <--- NOVO
   const event = new CustomEvent("tabChange", { detail: { tabName: name } });
@@ -54,14 +61,17 @@ function closeEdit() {
 
 /* ---------- VENDAS (fetch) ---------- */
 async function loadVendas() {
-  const qCliente = document.getElementById("searchCliente").value.trim().toLowerCase();
+  const qCliente = document
+    .getElementById("searchCliente")
+    .value.trim()
+    .toLowerCase();
   const dateFrom = document.getElementById("dateFrom").value;
   const dateTo = document.getElementById("dateTo").value;
   const statusFilter = document.getElementById("filterStatus").value;
 
   const res = await fetch("/admin/api/vendas");
   if (!res.ok) {
-    alert("Erro ao carregar vendas");
+    showError("Erro ao carregar vendas");
     return;
   }
   let data = await res.json();
@@ -69,11 +79,19 @@ async function loadVendas() {
   // Filtros
   data = data.filter((v) => {
     if (qCliente) {
-      const s = (String(v.nome_cliente || v.cliente || "") + " " + String(v.id)).toLowerCase();
+      const s = (
+        String(v.nome_cliente || v.cliente || "") +
+        " " +
+        String(v.id)
+      ).toLowerCase();
       if (!s.includes(qCliente)) return false;
     }
-    if (statusFilter && String(v.status || "").toLowerCase() !== statusFilter.toLowerCase()) return false;
-    
+    if (
+      statusFilter &&
+      String(v.status || "").toLowerCase() !== statusFilter.toLowerCase()
+    )
+      return false;
+
     if (dateFrom) {
       const d = new Date(v.data);
       if (d < new Date(dateFrom + "T00:00:00")) return false;
@@ -91,11 +109,13 @@ async function loadVendas() {
   data.forEach((v) => {
     const tr = document.createElement("tr");
     const status = (v.status || "pendente").toLowerCase();
-    
+
     // Define a classe de cor para o select de status
     let pillClass = "status-pendente";
-    if (status === "concluido" || status === "concluído") pillClass = "status-concluido";
-    if (status === "entrega" || status === "saiu para entrega") pillClass = "status-entrega";
+    if (status === "concluido" || status === "concluído")
+      pillClass = "status-concluido";
+    if (status === "entrega" || status === "saiu para entrega")
+      pillClass = "status-entrega";
 
     // Injeção de data-label em cada TD para suporte ao CSS Mobile
     tr.innerHTML = `
@@ -105,31 +125,44 @@ async function loadVendas() {
       <td data-label="Pagamento">${v.forma_pagamento || "—"}</td>
       <td data-label="Data">${new Date(v.data).toLocaleString()}</td>
       <td data-label="Status">
-        <select class="status-select ${pillClass}" data-id="${v.id}" style="width: 100%;">
-          ${STATUS_VALIDOS.map(s => `
+        <select class="status-select ${pillClass}" data-id="${
+      v.id
+    }" style="width: 100%;">
+          ${STATUS_VALIDOS.map(
+            (s) => `
             <option value="${s}" ${s === status ? "selected" : ""}>
               ${s.replace("_", " ").toUpperCase()}
-            </option>`).join("")}
+            </option>`
+          ).join("")}
         </select>
       </td>
       <td class="acoes-venda">
-        <button class="btn ghost mini-btn" onclick="viewVenda(${v.id})">Ver</button>
-        <button class="btn mini-btn" onclick="downloadNota(${v.id})">Nota</button>
-        <button type="button" class="btn mini-btn" onclick="salvarStatus(${v.id})">Atualizar</button>
-        <button class="btn btn-danger mini-btn" onclick="deleteVenda(${v.id})">Excluir</button>
+        <button class="btn ghost mini-btn" onclick="viewVenda(${
+          v.id
+        })">Ver</button>
+        <button class="btn mini-btn" onclick="downloadNota(${
+          v.id
+        })">Nota</button>
+        <button type="button" class="btn mini-btn" onclick="salvarStatus(${
+          v.id
+        })">Atualizar</button>
+        <button class="btn btn-danger mini-btn" onclick="deleteVenda(${
+          v.id
+        })">Excluir</button>
       </td>
     `;
     tbody.appendChild(tr);
   });
 
-  document.getElementById("resumo24").innerText = data.length + " vendas listadas";
+  document.getElementById("resumo24").innerText =
+    data.length + " vendas listadas";
 }
 
 async function salvarStatus(id) {
   const select = document.querySelector(`.status-select[data-id="${id}"]`);
 
   if (!select) {
-    alert("Status não encontrado");
+    showError("Status não encontrado");
     return;
   }
 
@@ -146,7 +179,10 @@ async function salvarStatus(id) {
   statusConfirmacaoPendente = novoStatus;
 
   mostrarConfirmacao(
-    `Tem certeza que deseja alterar o status para "<b>${novoStatus.replace("_", " ")}</b>"?`
+    `Tem certeza que deseja alterar o status para "<b>${novoStatus.replace(
+      "_",
+      " "
+    )}</b>"?`
   );
 }
 
@@ -156,16 +192,13 @@ async function confirmarAlteracaoStatus() {
   fecharModalConfirmacao();
 
   try {
-    const res = await fetch(
-      `/admin/vendas/${pedidoConfirmacaoId}/status`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: statusConfirmacaoPendente
-        }),
-      }
-    );
+    const res = await fetch(`/admin/vendas/${pedidoConfirmacaoId}/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: statusConfirmacaoPendente,
+      }),
+    });
 
     const data = await res.json();
 
@@ -179,9 +212,8 @@ async function confirmarAlteracaoStatus() {
     }
 
     loadVendas();
-
   } catch (e) {
-    alert(e.message);
+    showError(e.message);
   } finally {
     pedidoConfirmacaoId = null;
     statusConfirmacaoPendente = null;
@@ -217,8 +249,8 @@ async function confirmarAlteracaoStatus() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        status: statusConfirmacaoPendente
-      })
+        status: statusConfirmacaoPendente,
+      }),
     });
 
     const data = await res.json();
@@ -234,12 +266,10 @@ async function confirmarAlteracaoStatus() {
 
     fecharModalConfirmacao();
     loadVendas();
-
   } catch (e) {
-    alert(e.message);
+    showError(e.message);
   }
 }
-
 
 // ===============================
 // MENSAGENS PADRÃO WHATSAPP
@@ -258,8 +288,6 @@ function abrirWhatsApp(telefone, mensagem) {
   window.open(url, "_blank");
 }
 
-
-
 /* ---------- Detalhes da venda e ações ---------- */
 /* ----------------------------------------------
    DETALHES DA VENDA (Modal)
@@ -271,7 +299,7 @@ async function viewVenda(id) {
   const list = document.getElementById("vendaItems");
   list.innerHTML = "";
 
-  // 🔥 Buscar itens
+  // 🔥 Buscar itens do pedido
   const res = await fetch(`/admin/vendas/${id}/itens`);
   const itens = res.ok ? await res.json() : [];
 
@@ -281,33 +309,57 @@ async function viewVenda(id) {
     const row = document.createElement("div");
     row.className = "row";
 
-    let nome = it.product_name || it.nome_produto || "Produto";
+    const nome = it.product_name || it.nome_produto || "Produto";
+    const qtd = Number(it.quantidade || 1);
 
-    const qtd = Number(it.quantidade || 0);
-    const preco = Number(it.preco_unitario || 0);
-    const totalItem = qtd * preco;
-    subtotal += totalItem;
+    // 🔥 PREÇO BASE REAL (promo já aplicada)
+    const precoBase = Number(it.preco_unitario || 0);
 
-    // 🔥 Converter opções
-    const opts = it.options || {};
-
-    // 🔥 Montar detalhes igual ao carrinho / nota fiscal
-    let detalhes = "";
-
-    // tamanho
-    if (opts.size && opts.size.name) {
-      const sp = Number(opts.size.extra_price || 0);
-      detalhes += ` • Tamanho: ${opts.size.name}`;
-      if (sp > 0) detalhes += ` (+R$ ${sp.toFixed(2)})`;
+    // 🔥 opções
+    let opts = it.options || {};
+    if (typeof opts === "string") {
+      try {
+        opts = JSON.parse(opts);
+      } catch {
+        opts = {};
+      }
     }
 
-    // ingredientes
+    // 🔥 calcular adicionais
+    let adicionais = 0;
+
+    if (opts.size && opts.size.extra_price) {
+      adicionais += Number(opts.size.extra_price || 0);
+    }
+
+    if (Array.isArray(opts.extras)) {
+      opts.extras.forEach((e) => {
+        adicionais += Number(e.price || 0);
+      });
+    }
+
+    // 🔥 PREÇO FINAL UNITÁRIO
+    const precoFinal = precoBase + adicionais;
+
+    // 🔥 TOTAL DO ITEM
+    const totalItem = precoFinal * qtd;
+    subtotal += totalItem;
+
+    // 🔥 montar descrição
+    let detalhes = "";
+
+    if (opts.size && opts.size.name) {
+      detalhes += ` • Tamanho: ${opts.size.name}`;
+      if (Number(opts.size.extra_price) > 0) {
+        detalhes += ` (+R$ ${Number(opts.size.extra_price).toFixed(2)})`;
+      }
+    }
+
     if (Array.isArray(opts.ingredients) && opts.ingredients.length > 0) {
       const listIng = opts.ingredients.map((i) => i.name).join(", ");
       detalhes += ` • Sabores: ${listIng}`;
     }
 
-    // extras
     if (Array.isArray(opts.extras) && opts.extras.length > 0) {
       const exList = opts.extras
         .map((e) => `${e.name} (+R$ ${Number(e.price).toFixed(2)})`)
@@ -316,30 +368,33 @@ async function viewVenda(id) {
     }
 
     row.innerHTML = `
-            <div>
-                <b>${qtd}x ${nome}</b>
-                <div class="small muted">${detalhes}</div>
-            </div>
-            <div>R$ ${preco.toFixed(2)}</div>
-        `;
+      <div>
+        <b>${qtd}x ${nome}</b>
+        <div class="small muted">${detalhes}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="small muted">Base: R$ ${precoBase.toFixed(2)}</div>
+        <div><b>Total Item: R$ ${precoFinal.toFixed(2)}</b></div>
+      </div>
+    `;
 
     list.appendChild(row);
   });
 
-  // 🔥 Buscar informações extras da venda
+  // 🔥 Buscar dados gerais da venda
   const vendRes = await fetch("/admin/api/vendas");
   const allVendas = vendRes.ok ? await vendRes.json() : [];
   const venda = allVendas.find((v) => v.id === id) || {};
 
-  const deliveryFee = parseFloat(venda.delivery_fee || 0);
+  const deliveryFee = Number(venda.delivery_fee || 0);
   const totalFinal = subtotal + deliveryFee;
 
-  // Exibir info
+  // 🔥 Info do cliente
   document.getElementById("vendaInfo").innerText = `Cliente: ${
     venda.nome_cliente || "—"
   } • Tel: ${venda.telefone || "—"} • End.: ${venda.endereco || "—"}`;
 
-  // Totais
+  // 🔥 Totais
   let totalsEl = document.getElementById("vendaTotals");
   if (!totalsEl) {
     totalsEl = document.createElement("div");
@@ -351,15 +406,17 @@ async function viewVenda(id) {
   }
 
   totalsEl.innerHTML = `
-        Subtotal: R$ ${subtotal.toFixed(2)}<br/>
-        Taxa de entrega: R$ ${deliveryFee.toFixed(2)}<br/>
-        <span style="font-size:15px">Total: R$ ${totalFinal.toFixed(2)}</span>
-    `;
+    Subtotal: R$ ${subtotal.toFixed(2)}<br/>
+    Taxa de entrega: R$ ${deliveryFee.toFixed(2)}<br/>
+    <span style="font-size:15px">Total: R$ ${totalFinal.toFixed(2)}</span>
+  `;
 
-  // Ações
+  // 🔥 Ações
   document.getElementById("btnDownloadNota").onclick = () => downloadNota(id);
   document.getElementById("btnMarcar").onclick = () => marcarConcluido(id);
 }
+
+
 
 function closeVendaModal() {
   document.getElementById("modalVenda").style.display = "none";
@@ -387,11 +444,11 @@ async function marcarConcluido(id) {
 
     console.log("Status atualizado:", data);
 
-    alert("Venda marcada como concluída");
+    showSuccess("Venda marcada como concluída");
     loadVendas();
     closeVendaModal();
   } catch (e) {
-    alert("Erro ao marcar: " + e.message);
+    showError("Erro ao marcar: " + e.message);
   }
 }
 
@@ -401,10 +458,10 @@ async function deleteVenda(id) {
   try {
     const res = await fetch(`/admin/vendas/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Falha ao remover");
-    alert("Removido");
+    showSuccess("Removido");
     loadVendas();
   } catch (e) {
-    alert("Erro: " + e.message);
+    showError("Erro: " + e.message);
   }
 }
 
@@ -418,7 +475,7 @@ function quickSearch() {
 
 /* ---------- Config (placeholder) ---------- */
 function saveConfig() {
-  alert("Configurações salvas (placeholder).");
+  showSuccess("Configurações salvas (placeholder).");
 }
 
 /* --------------------------------------------- */
@@ -482,7 +539,7 @@ function abrirModalTempo(pedidoId, status) {
   const modal = document.getElementById("modalTempoPreparo");
 
   if (!input || !modal) {
-    alert("Erro: modal de tempo não encontrado no HTML");
+    showError("Erro: modal de tempo não encontrado no HTML");
     return;
   }
 
@@ -499,14 +556,14 @@ async function confirmarTempoPreparo() {
   const input = document.getElementById("inputTempoPreparo");
 
   if (!input) {
-    alert("Erro: input de tempo não encontrado");
+    showError("Erro: input de tempo não encontrado");
     return;
   }
 
   const tempo = input.value;
 
   if (!tempo || tempo <= 0) {
-    alert("Informe um tempo válido");
+    showError("Informe um tempo válido");
     return;
   }
 
@@ -541,7 +598,7 @@ async function confirmarTempoPreparo() {
 
     loadVendas();
   } catch (e) {
-    alert(e.message);
+    showError(e.message);
   }
 }
 
@@ -862,6 +919,355 @@ async function deleteVariation(type, idItem) {
 
   loadAllVariations(prodId);
 }
+
+/* ================= PROMOÇÕES ================= */
+
+async function carregarProdutosPromocao(selectId = "produtosSelect") {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  try {
+    const res = await fetch("/api/products");
+    const produtos = await res.json();
+
+    produtos.forEach((p) => {
+      const option = document.createElement("option");
+      option.value = p.id;
+      option.textContent = `${p.name} — R$ ${Number(p.price).toFixed(2)}`;
+      select.appendChild(option);
+    });
+  } catch (e) {
+    console.error(e);
+    select.innerHTML = "<option>Erro ao carregar produtos</option>";
+  }
+}
+
+
+
+/* ---------- SALVAR PROMOÇÃO ---------- */
+
+const formPromocao = document.getElementById("formPromocao");
+
+if (formPromocao) {
+  formPromocao.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(formPromocao);
+
+    const payload = {
+      nome: formData.get("nome"),
+      tipo_desconto: formData.get("tipo_desconto"),
+      valor_desconto: parseFloat(formData.get("valor_desconto")),
+      data_inicio: formData.get("data_inicio"),
+      data_fim: formData.get("data_fim"),
+      produtos: formData.getAll("produtos[]").map(Number),
+    };
+
+    if (!payload.produtos.length) {
+      showError("Selecione pelo menos um produto");
+      return;
+    }
+
+    try {
+      const res = await fetch("/admin/api/promocoes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Erro ao criar promoção");
+      }
+
+      showSuccess("Promoção criada com sucesso!");
+      formPromocao.reset();
+
+    } catch (e) {
+      showError("Erro: " + e.message);
+    }
+  });
+}
+
+async function carregarPromocoes() {
+  const container = document.getElementById("lista-promocoes");
+
+  try {
+    const res = await fetch("/admin/api/promocoes");
+    const promocoes = await res.json();
+
+    if (!promocoes.length) {
+      container.innerHTML = "<p class='muted'>Nenhuma promoção criada.</p>";
+      return;
+    }
+
+    container.innerHTML = "";
+
+    promocoes.forEach((p) => {
+      const agora = new Date();
+      const fim = new Date(p.data_fim);
+      const expirada = fim < agora;
+
+      container.innerHTML += `
+    <div class="promocao-card">
+
+      <div class="promocao-info">
+
+        <span class="promocao-status ${
+          expirada
+            ? "status-expirada"
+            : p.ativo
+            ? "status-ativa"
+            : "status-inativa"
+        }">
+
+          ${expirada ? "ENCERRADA" : p.ativo ? "ATIVA" : "PAUSADA"}
+
+        </span>
+
+        <h4>${p.nome}</h4>
+
+        <small>
+          ${
+            p.tipo_desconto === "percentual"
+              ? p.valor_desconto + "% OFF"
+              : "R$ " + p.valor_desconto + " OFF"
+          }
+          • ${p.total_produtos} produto(s)
+        </small>
+
+        <small>
+          ⏱ ${formatarData(p.data_inicio)} → ${formatarData(p.data_fim)}
+        </small>
+      </div>
+
+      <div class="promocao-actions">
+
+        <button
+          title="Ativar / Pausar"
+          onclick="togglePromocao(${p.id}, ${p.ativo}, '${p.data_fim}')"
+        >
+          ⏯️
+        </button>
+
+        <button onclick="editarPromocao(${p.id})">✏️</button>
+
+        <button onclick="excluirPromocao(${p.id})">🗑️</button>
+
+      </div>
+
+    </div>
+  `;
+    });
+  } catch (e) {
+    container.innerHTML = "<p class='muted'>Erro ao carregar promoções.</p>";
+    console.error(e);
+  }
+}
+
+
+function formatarData(data) {
+  return new Date(data.replace(" ", "T")).toLocaleString("pt-BR");
+}
+
+async function togglePromocao(id, ativoAtual, dataFim) {
+  const agora = new Date();
+  const fim = new Date(dataFim);
+
+  // 👉 Se já passou do tempo, não deixa pausar/ativar — abre o modal de edição
+  if (fim < agora) {
+    showError("Essa promoção já encerrou. Defina um novo período.");
+    editarPromocao(id); // 🔥 abre o modal existente
+    return;
+  }
+
+  // 👉 Caso contrário, segue o comportamento normal
+  const ok = await showConfirm(
+    ativoAtual
+      ? "Deseja pausar esta promoção?"
+      : "Deseja ativar esta promoção?"
+  );
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`/admin/api/promocoes/${id}/toggle`, {
+      method: "POST",
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || "Erro ao alterar promoção");
+    }
+
+    carregarPromocoes();
+  } catch (e) {
+    showError("Erro: " + e.message);
+  }
+}
+
+
+async function excluirPromocao(id) {
+  const ok = await showConfirm("Tem certeza que deseja excluir esta promoção?");
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`/admin/api/promocoes/${id}`, {
+      method: "DELETE",
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || "Erro ao excluir promoção");
+    }
+
+    carregarPromocoes();
+  } catch (e) {
+    showError("Erro: " + e.message);
+  }
+}
+
+async function editarPromocao(id) {
+  try {
+    const res = await fetch(`/admin/api/promocoes/${id}`);
+    if (!res.ok) throw new Error();
+
+    const data = await res.json();
+    const form = document.getElementById("formEditarPromocao");
+
+    // campos básicos
+    form.querySelector('[name="id"]').value = data.id;
+    form.querySelector('[name="nome"]').value = data.nome;
+    form.querySelector('[name="tipo_desconto"]').value = data.tipo_desconto;
+    form.querySelector('[name="valor_desconto"]').value = data.valor_desconto;
+
+    form.querySelector('[name="data_inicio"]').value = data.data_inicio
+      .replace(" ", "T")
+      .slice(0, 16);
+
+    form.querySelector('[name="data_fim"]').value = data.data_fim
+      .replace(" ", "T")
+      .slice(0, 16);
+
+    // carregar produtos NO SELECT CORRETO
+    await carregarProdutosPromocao("editarProdutosSelect");
+
+    const select = document.getElementById("editarProdutosSelect");
+
+    [...select.options].forEach((opt) => {
+      opt.selected = data.produtos.includes(Number(opt.value));
+    });
+
+    document.getElementById("modalEditarPromocao").style.display = "flex";
+  } catch (e) {
+    showError("Erro ao carregar promoção");
+  }
+}
+document
+  .getElementById("formEditarPromocao")
+  .addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const form = e.target;
+    const id = form.querySelector('[name="id"]').value;
+
+    const select = document.getElementById("editarProdutosSelect");
+
+    const payload = {
+      nome: form.querySelector('[name="nome"]').value,
+      tipo_desconto: form.querySelector('[name="tipo_desconto"]').value,
+      valor_desconto: Number(
+        form.querySelector('[name="valor_desconto"]').value
+      ),
+      data_inicio: form.querySelector('[name="data_inicio"]').value,
+      data_fim: form.querySelector('[name="data_fim"]').value,
+      produtos: [...select.selectedOptions].map((o) => Number(o.value)),
+    };
+
+    try {
+      const res = await fetch(`/admin/api/promocoes/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!data.success) throw new Error();
+
+      fecharModalEditar();
+      carregarPromocoes();
+    } catch {
+      showError("Erro ao salvar promoção");
+    }
+  });
+
+function fecharModalEditar() {
+  document.getElementById("modalEditarPromocao").style.display = "none";
+}
+
+function showModal(title, message, buttons = []) {
+  const overlay = document.getElementById("modalOverlay");
+  const modalTitle = document.getElementById("modalTitle");
+  const modalMessage = document.getElementById("modalMessage");
+  const modalButtons = document.getElementById("modalButtons");
+
+  modalTitle.textContent = title;
+  modalMessage.textContent = message;
+
+  modalButtons.innerHTML = "";
+  buttons.forEach((btn) => modalButtons.appendChild(btn));
+
+  overlay.style.display = "flex";
+}
+
+function closeModal() {
+  document.getElementById("modalOverlay").style.display = "none";
+}
+
+function showConfirm(message) {
+  return new Promise((resolve) => {
+    const yes = document.createElement("button");
+    yes.className = "btn-confirm";
+    yes.textContent = "Confirmar";
+    yes.onclick = () => {
+      closeModal();
+      resolve(true);
+    };
+
+    const no = document.createElement("button");
+    no.className = "btn-cancel";
+    no.textContent = "Cancelar";
+    no.onclick = () => {
+      closeModal();
+      resolve(false);
+    };
+
+    showModal("Confirmação", message, [yes, no]);
+  });
+}
+
+function showError(message) {
+  const ok = document.createElement("button");
+  ok.className = "btn-error";
+  ok.textContent = "Fechar";
+  ok.onclick = closeModal;
+
+  showModal("Erro", message, [ok]);
+}
+
+function showSuccess(message) {
+  const ok = document.createElement("button");
+  ok.className = "btn-ok";
+  ok.textContent = "Ok";
+  ok.onclick = closeModal;
+
+  showModal("Sucesso", message, [ok]);
+}
+
 
 // ====================================================
 // INICIALIZAÇÃO CORRETA (BLOCO init)

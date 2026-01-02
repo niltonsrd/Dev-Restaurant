@@ -30,14 +30,6 @@ from functools import wraps # ⬅️ GARANTA QUE ISTO ESTÁ IMPORTADO TAMBÉM
 
 ADMIN_RESET_TOKEN = "ntdev"
 
-# =============================
-# Função get_db
-# =============================
-def get_db():
-    if not hasattr(g, "_db"):
-        g._db = sqlite3.connect(DATABASE_FILE)
-        g._db.row_factory = sqlite3.Row
-    return g._db
 
 # ===============================
 # STATUS PADRÃO DO PEDIDO
@@ -156,6 +148,21 @@ app.config['JSON_AS_ASCII'] = False
 app.secret_key = os.environ.get('FLASK_SECRET', 'dev-secret')
 
 
+# =============================
+# Função get_db
+# =============================
+def get_db():
+    if 'db' not in g:
+        g.db = sqlite3.connect(DATABASE_FILE)
+        g.db.row_factory = sqlite3.Row
+    return g.db
+
+@app.teardown_appcontext
+def close_db(exception):
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+# =============================
 
 def get_admin_user():
     return get_setting("admin_user") or "admin"
@@ -306,6 +313,20 @@ def save_settings_dict(settings_dict):
     db.commit()
 
 
+def calcular_preco_promocional(preco, tipo, desconto):
+    preco = float(preco)
+    desconto = float(desconto)
+
+    if tipo == 'percentual':
+        preco_final = preco - (preco * (desconto / 100))
+    elif tipo == 'valor_fixo':
+        preco_final = preco - desconto
+    else:
+        preco_final = preco
+
+    return round(max(preco_final, 0.01), 2)
+
+
 # =============================
 # CHAMAR INICIALIZAÇÃO
 # (Agora dentro de um contexto válido)
@@ -330,25 +351,8 @@ def now_br():
     fuso_br = timezone(timedelta(hours=-3))
     return datetime.now(fuso_br)
 
-# -----------------------
-# DB helpers
-# -----------------------
 
-# --------------------------------------------------------------------------
-# Definição da função de conexão com o banco de dados
-# --------------------------------------------------------------------------
-def get_db_connection():
-    """Cria e retorna uma conexão com o banco de dados SQLite."""
-    conn = sqlite3.connect('database.db') # Ajuste o nome do arquivo se for diferente
-    conn.row_factory = sqlite3.Row # Permite acessar colunas por nome
-    return conn
 
-def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE_FILE)
-        db.row_factory = sqlite3.Row
-    return db
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -728,40 +732,105 @@ def index():
     settings = load_settings()
     return render_template('index.html', settings=settings)
 
+from datetime import datetime
+
 @app.route('/api/products')
 def api_products():
     db = get_db()
     cur = db.cursor()
 
     cur.execute("""
-        SELECT 
-            p.id,
-            p.name,
-            p.price,
-            COALESCE(c.name, '') AS category,
-            p.image,
-            p.description,
-            p.customizable
-        FROM products p
-        LEFT JOIN categories c ON c.id = p.category_id
-        ORDER BY c.name, p.name
-    """)
+SELECT
+    p.id,
+    p.name,
+    p.price,
+    COALESCE(c.name, '') AS category,
+    p.image,
+    p.description,
+    p.customizable,
+
+    (
+        SELECT pr.tipo_desconto
+        FROM promocao_produtos pp
+        JOIN promocoes pr ON pr.id = pp.promocao_id
+        WHERE pp.produto_id = p.id
+          AND pr.ativo = 1
+          AND datetime('now','localtime') BETWEEN pr.data_inicio AND pr.data_fim
+        LIMIT 1
+    ) AS tipo_desconto,
+
+    (
+        SELECT pr.valor_desconto
+        FROM promocao_produtos pp
+        JOIN promocoes pr ON pr.id = pp.promocao_id
+        WHERE pp.produto_id = p.id
+          AND pr.ativo = 1
+          AND datetime('now','localtime') BETWEEN pr.data_inicio AND pr.data_fim
+        LIMIT 1
+    ) AS valor_desconto,
+
+    (
+        SELECT pr.data_fim
+        FROM promocao_produtos pp
+        JOIN promocoes pr ON pr.id = pp.promocao_id
+        WHERE pp.produto_id = p.id
+          AND pr.ativo = 1
+          AND datetime('now','localtime') BETWEEN pr.data_inicio AND pr.data_fim
+        LIMIT 1
+    ) AS data_fim
+
+FROM products p
+LEFT JOIN categories c ON c.id = p.category_id
+ORDER BY c.name, p.name
+""")
 
     rows = cur.fetchall()
     results = []
 
+    from datetime import datetime
+
+    now = datetime.now()
+
     for r in rows:
+        price = float(r['price'] or 0)
+
+        # verifica se ainda está válida
+        if r['tipo_desconto'] is not None and r['data_fim']:
+            try:
+                fim = datetime.strptime(r['data_fim'], "%Y-%m-%d %H:%M:%S")
+                if fim > now:
+                    preco_promocional = calcular_preco_promocional(
+                        price,
+                        r['tipo_desconto'],
+                        r['valor_desconto']
+                    )
+                    em_promocao = True
+                else:
+                    preco_promocional = price
+                    em_promocao = False
+            except:
+                preco_promocional = price
+                em_promocao = False
+        else:
+            preco_promocional = price
+            em_promocao = False
+
         results.append({
             'id': r['id'],
             'name': r['name'],
-            'price': float(r['price'] or 0),
+            'price': price,
+            'preco_promocional': preco_promocional,
+            'em_promocao': em_promocao,
             'category': r['category'],
             'image': r['image'] or '',
             'description': r['description'] or '',
-            'customizable': int(r['customizable'] or 0)  # <-- IMPORTANTE
+            'customizable': int(r['customizable'] or 0),
+            'promo_fim': r['data_fim'] if em_promocao else None
         })
 
     return jsonify(results)
+
+
 
 
 @app.route('/api/categories')
@@ -986,9 +1055,10 @@ def api_checkout():
         
         # 🟢 Corrigindo o 'nan': Garante que base_price seja um número válido
         try:
-            base_price = float(str(it.get("unit_price") or 0).replace(",", "."))
+            base_price = float(str(it.get("base_price") or 0).replace(",", "."))
         except:
             base_price = 0.0
+
 
 
         # ---- MODELO B ----
@@ -1079,7 +1149,7 @@ def api_checkout():
             qty = int(it.get("qty") or 1)
 
             try:
-                price = float(str(it.get("unit_price") or 0).replace(",", "."))
+                price = float(str(it.get("base_price") or 0).replace(",", "."))
             except:
                 price = 0.0
 
@@ -1116,10 +1186,6 @@ def api_checkout():
     'pix_path': pix_path,
     'total': f"{total_final:.2f}"
 })
-
-
-
-
 
 
 @app.route('/pix/<filename>')
@@ -1537,12 +1603,217 @@ def admin_add():
     return redirect(url_for('admin'))
 
 
+@app.route("/admin/api/promocoes", methods=["POST"])
+def criar_promocao():
+    try:
+        data = request.get_json()
+
+        nome = data.get("nome")
+        tipo_desconto = data.get("tipo_desconto")
+        valor_desconto = float(data.get("valor_desconto", 0))
+        data_inicio = data.get("data_inicio")
+        data_fim = data.get("data_fim")
+
+        # Corrige formato datetime-local para SQLite
+        # de: 2026-01-02T14:30
+        # para: 2026-01-02 14:30:00
+        if data_inicio:
+            data_inicio = data_inicio.replace("T", " ") + ":00"
+
+        if data_fim:
+            data_fim = data_fim.replace("T", " ") + ":00"
+            produtos = data.get("produtos", [])
+
+        if not all([nome, tipo_desconto, data_inicio, data_fim]) or not produtos:
+            return jsonify(success=False, message="Dados incompletos"), 400
+
+        db = get_db()
+        cur = db.cursor()
+
+        # cria promoção
+        cur.execute("""
+            INSERT INTO promocoes (nome, tipo_desconto, valor_desconto, data_inicio, data_fim, ativo)
+            VALUES (?, ?, ?, ?, ?, 1)
+        """, (nome, tipo_desconto, valor_desconto, data_inicio, data_fim))
+
+        promocao_id = cur.lastrowid
+
+        # vincula produtos
+        for prod_id in produtos:
+            cur.execute("""
+                INSERT INTO promocao_produtos (promocao_id, produto_id)
+                VALUES (?, ?)
+            """, (promocao_id, prod_id))
+
+        db.commit()
+
+        return jsonify(success=True)
+
+    except Exception as e:
+        print("Erro ao criar promoção:", e)
+        return jsonify(success=False, message=str(e)), 500
+    
+@app.route("/admin/api/promocoes", methods=["GET"])
+def listar_promocoes():
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+        SELECT
+            p.id,
+            p.nome,
+            p.tipo_desconto,
+            p.valor_desconto,
+            p.data_inicio,
+            p.data_fim,
+            p.ativo,
+            COUNT(pp.produto_id) AS total_produtos
+        FROM promocoes p
+        LEFT JOIN promocao_produtos pp ON pp.promocao_id = p.id
+        GROUP BY p.id
+        ORDER BY p.data_inicio DESC
+    """)
+
+    rows = cur.fetchall()
+
+    promocoes = []
+    for r in rows:
+        promocoes.append({
+            "id": r["id"],
+            "nome": r["nome"],
+            "tipo_desconto": r["tipo_desconto"],
+            "valor_desconto": r["valor_desconto"],
+            "data_inicio": r["data_inicio"],
+            "data_fim": r["data_fim"],
+            "ativo": bool(r["ativo"]),
+            "total_produtos": r["total_produtos"]
+        })
+
+    return jsonify(promocoes)
+
+@app.route("/admin/api/promocoes/<int:promocao_id>/toggle", methods=["POST"])
+def toggle_promocao(promocao_id):
+    try:
+        db = get_db()
+        cur = db.cursor()
+
+        cur.execute("SELECT ativo FROM promocoes WHERE id = ?", (promocao_id,))
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify(success=False, message="Promoção não encontrada"), 404
+
+        novo_status = 0 if row["ativo"] else 1
+
+        cur.execute(
+            "UPDATE promocoes SET ativo = ? WHERE id = ?",
+            (novo_status, promocao_id),
+        )
+        db.commit()
+
+        return jsonify(success=True, ativo=bool(novo_status))
+
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route("/admin/api/promocoes/<int:promocao_id>", methods=["DELETE"])
+def excluir_promocao(promocao_id):
+    try:
+        db = get_db()
+        cur = db.cursor()
+
+        cur.execute("DELETE FROM promocao_produtos WHERE promocao_id = ?", (promocao_id,))
+        cur.execute("DELETE FROM promocoes WHERE id = ?", (promocao_id,))
+
+        db.commit()
+        return jsonify(success=True)
+
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route("/admin/api/promocoes/<int:promocao_id>", methods=["GET"])
+def get_promocao(promocao_id):
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+        SELECT id, nome, tipo_desconto, valor_desconto, data_inicio, data_fim
+        FROM promocoes
+        WHERE id = ?
+    """, (promocao_id,))
+    promo = cur.fetchone()
+
+    if not promo:
+        return jsonify(success=False), 404
+
+    cur.execute("""
+        SELECT produto_id
+        FROM promocao_produtos
+        WHERE promocao_id = ?
+    """, (promocao_id,))
+    produtos = [p["produto_id"] for p in cur.fetchall()]
+
+    return jsonify(
+        id=promo["id"],
+        nome=promo["nome"],
+        tipo_desconto=promo["tipo_desconto"],
+        valor_desconto=promo["valor_desconto"],
+        data_inicio=promo["data_inicio"],
+        data_fim=promo["data_fim"],
+        produtos=produtos,
+    )
+
+@app.route("/admin/api/promocoes/<int:promocao_id>", methods=["PUT"])
+def atualizar_promocao(promocao_id):
+    try:
+        data = request.get_json()
+
+        data_inicio = data["data_inicio"].replace("T", " ") + ":00"
+        data_fim = data["data_fim"].replace("T", " ") + ":00"
+
+        db = get_db()
+        cur = db.cursor()
+
+        cur.execute("""
+            UPDATE promocoes
+            SET nome=?, tipo_desconto=?, valor_desconto=?, data_inicio=?, data_fim=?
+            WHERE id=?
+        """, (
+            data["nome"],
+            data["tipo_desconto"],
+            data["valor_desconto"],
+            data_inicio,
+            data_fim,
+            promocao_id
+        ))
+
+        cur.execute(
+            "DELETE FROM promocao_produtos WHERE promocao_id = ?",
+            (promocao_id,),
+        )
+
+        for prod_id in data["produtos"]:
+            cur.execute("""
+                INSERT INTO promocao_produtos (promocao_id, produto_id)
+                VALUES (?, ?)
+            """, (promocao_id, prod_id))
+
+        db.commit()
+        return jsonify(success=True)
+
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+
+
+
+
 # --- API PARA O MODAL COMPLETO (Tamanhos, Ingredientes, Adicionais) ---
 
 # 1. Rota que busca TUDO de um produto para preencher o modal
 @app.route("/api/product/<int:product_id>/details")
 def api_product_details(product_id):
-    conn = get_db_connection()
+    conn = get_db()
 
     # Tamanhos
     sizes = conn.execute("""
@@ -1989,7 +2260,7 @@ def admin_relatorio_csv():
     data_inicio_utc_str = data_inicio.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
     
     # 3. Buscar Dados Detalhados no Banco de Dados
-    conn = get_db_connection()
+    conn = get_db()
     try:
         query = """
             SELECT
@@ -2079,7 +2350,7 @@ def admin_relatorio_csv():
     
     return response
 
-# Lembre-se de importar get_db_connection se ainda não o fez.
+# Lembre-se de importar get_db se ainda não o fez.
 
 @app.route('/admin/api/vendas')
 def api_admin_vendas():
@@ -2223,25 +2494,24 @@ def gerar_nota(pedido_id):
     if request.cookies.get('admin_auth') != '1':
         abort(403)
 
-    settings = load_settings_dict()
-
-    restaurant_name = settings.get("site_title", "Meu Restaurante")
-    store_cnpj = settings.get("cnpj", "")
-    store_address = f"{settings.get('address_street', '')}, {settings.get('address_number', '')}"
-    store_city = f"{settings.get('address_city', '')} - {settings.get('address_state', '')}"
-    restaurant_desc = settings.get("site_description", "")
-    restaurant_phone = settings.get("whatsapp_number", "")
-    logo_path = settings.get("logo_path", "")
-    background_path = settings.get("background_path", "")
-    import json
+    import json, os
     from datetime import datetime
     from reportlab.lib import colors
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.enums import TA_CENTER
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
 
+    settings = load_settings_dict()
+
+    restaurant_name = settings.get("site_title", "Meu Restaurante")
+    store_cnpj = settings.get("cnpj", "")
+    store_address = f"{settings.get('address_street', '')}, {settings.get('address_number', '')}"
+    store_city = f"{settings.get('address_city', '')} - {settings.get('address_state', '')}"
+    restaurant_phone = settings.get("whatsapp_number", "")
+    logo_path = settings.get("logo_path", "")
+
     # ===============================
-    # Função auxiliar: igual modal
+    # Função auxiliar (NÃO ALTERADA)
     # ===============================
     def montar_descricao_item(options_raw):
         try:
@@ -2254,39 +2524,28 @@ def gerar_nota(pedido_id):
 
         linhas = []
 
-        # Tamanho
         size = options.get("size") or {}
         if size:
-            n = size.get("name") or size.get("nome") or ""
-            p = float(size.get("extra_price") or size.get("price") or 0)
+            n = size.get("name") or ""
+            p = float(size.get("extra_price") or 0)
             if p > 0:
                 linhas.append(f"Tamanho: {n} (+R$ {p:.2f})")
             else:
                 linhas.append(f"Tamanho: {n}")
 
-        # Ingredientes
         ingredientes = options.get("ingredients") or []
         if ingredientes:
-            nomes = []
-            for ig in ingredientes:
-                if isinstance(ig, dict):
-                    nomes.append(ig.get("name") or ig.get("nome") or "")
-                else:
-                    nomes.append(str(ig))
+            nomes = [ig.get("name") for ig in ingredientes if isinstance(ig, dict)]
             if nomes:
                 linhas.append("Sabores: " + ", ".join(nomes))
 
-        # Adicionais
         extras = options.get("extras") or []
         if extras:
             parts = []
             for ex in extras:
-                if isinstance(ex, dict):
-                    n = ex.get("name") or ""
-                    p = float(str(ex.get("price") or 0).replace(",", "."))
-                    parts.append(f"{n} (+R$ {p:.2f})")
-                else:
-                    parts.append(str(ex))
+                n = ex.get("name") or ""
+                p = float(str(ex.get("price") or 0).replace(",", "."))
+                parts.append(f"{n} (+R$ {p:.2f})")
             if parts:
                 linhas.append("Adicionais: " + ", ".join(parts))
 
@@ -2297,6 +2556,7 @@ def gerar_nota(pedido_id):
     # ===============================
     db = get_db()
     cur = db.cursor()
+
     cur.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,))
     pedido_row = cur.fetchone()
     if not pedido_row:
@@ -2305,8 +2565,7 @@ def gerar_nota(pedido_id):
     pedido = dict(pedido_row)
 
     # ===============================
-    # Buscar itens do pedido
-    # Agora trazendo ip.nome_produto CORRETAMENTE
+    # Buscar itens
     # ===============================
     cur.execute("""
         SELECT 
@@ -2346,32 +2605,28 @@ def gerar_nota(pedido_id):
     # Logo
     if logo_path:
         logo_fs = logo_path.lstrip("/")
-    if os.path.exists(logo_fs):
-        img = Image(logo_fs, width=60, height=60)
-        img.hAlign = 'CENTER'
-        elementos.append(img)
+        if os.path.exists(logo_fs):
+            img = Image(logo_fs, width=60, height=60)
+            img.hAlign = 'CENTER'
+            elementos.append(img)
 
-    # Cabeçalho
     elementos.append(Paragraph(f"<b>{restaurant_name}</b>", estilo_titulo))
     elementos.append(Spacer(1, 6))
 
     if store_cnpj:
         elementos.append(Paragraph(f"CNPJ: {store_cnpj}", estilo_texto))
-
     if store_address.strip(", "):
         elementos.append(Paragraph(store_address, estilo_texto))
     if store_city.strip(" -"):
         elementos.append(Paragraph(store_city, estilo_texto))
-
     if restaurant_phone:
         elementos.append(Paragraph(f"Tel: {restaurant_phone}", estilo_texto))
+
     elementos.append(Spacer(1, 10))
 
-    # Infos pedido
     elementos.append(Paragraph(f"<b>Pedido Nº:</b> {pedido_id}", estilo_negrito))
     elementos.append(Paragraph(f"<b>Cliente:</b> {pedido.get('nome_cliente','—')}", estilo_texto))
 
-    # Data
     try:
         dt = datetime.strptime(pedido.get("data",""), "%Y-%m-%d %H:%M:%S")
         data_pedido = dt.strftime("%d/%m/%Y Às %H:%M")
@@ -2383,36 +2638,46 @@ def gerar_nota(pedido_id):
     elementos.append(Paragraph(f"<b>Endereço:</b> {pedido.get('endereco','—')}", estilo_texto))
     elementos.append(Paragraph(f"<b>Pagamento:</b> {pedido.get('forma_pagamento','—')}", estilo_texto))
 
-    if pedido.get("observacoes"):
-        elementos.append(Paragraph(f"<b>Obs:</b> {pedido['observacoes']}", estilo_texto))
-
     elementos.append(Spacer(1, 10))
 
     # ===============================
-    # Tabela de itens
+    # TABELA DE ITENS (CORRIGIDA)
     # ===============================
     tabela_dados = [["QTD", "ITEM", "UNIT", "TOTAL"]]
     subtotal = 0
 
     for it in itens:
-        # nome sempre correto
         nome = it.get("nome_produto") or it.get("product_name") or "Item"
+        qtd = int(it["quantidade"])
+        preco_base = float(it["preco_unitario"])
 
-        qtd = it["quantidade"]
-        preco = float(it["preco_unitario"])
-        total = preco * qtd
+        options_raw = it.get("options")
 
-        descricao_html = montar_descricao_item(it.get("options"))
+        try:
+            opts = json.loads(options_raw or "{}")
+        except:
+            opts = {}
 
-        if descricao_html:
-            item_paragraph = Paragraph(f"<b>{nome}</b><br/>{descricao_html}", estilo_item)
-        else:
-            item_paragraph = Paragraph(f"<b>{nome}</b>", estilo_item)
+        size_extra = float((opts.get("size") or {}).get("extra_price") or 0)
+
+        extras_total = 0
+        for ex in opts.get("extras") or []:
+            extras_total += float(str(ex.get("price") or 0).replace(",", "."))
+
+        preco_final = preco_base + size_extra + extras_total
+        total = preco_final * qtd
+
+        descricao_html = montar_descricao_item(options_raw)
+
+        item_paragraph = Paragraph(
+            f"<b>{nome}</b><br/>{descricao_html}" if descricao_html else f"<b>{nome}</b>",
+            estilo_item
+        )
 
         tabela_dados.append([
             str(qtd),
             item_paragraph,
-            f"R$ {preco:.2f}",
+            f"R$ {preco_base:.2f}",
             f"R$ {total:.2f}",
         ])
 
@@ -2431,22 +2696,21 @@ def gerar_nota(pedido_id):
     elementos.append(tabela)
     elementos.append(Spacer(1, 10))
 
-    # Totais
     taxa = float(pedido.get("delivery_fee") or 0)
     total_final = subtotal + taxa
 
     elementos.append(Paragraph(f"<b>Subtotal:</b> R$ {subtotal:.2f}", estilo_negrito))
     elementos.append(Paragraph(f"<b>Taxa de entrega:</b> R$ {taxa:.2f}", estilo_negrito))
     elementos.append(Paragraph(f"<b>Total Geral:</b> R$ {total_final:.2f}", estilo_negrito))
-    elementos.append(Spacer(1, 15))
 
+    elementos.append(Spacer(1, 15))
     elementos.append(Paragraph("Obrigado pela preferência!", estilo_titulo))
-    elementos.append(Spacer(1, 5))
     elementos.append(Paragraph("Sistema Desenvolvido Por NTDEV - 71991118924", estilo_texto))
 
     doc.build(elementos)
 
     return send_from_directory(app.config['NOTAS_FOLDER'], filename, as_attachment=False)
+
 
 
 

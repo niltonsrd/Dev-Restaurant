@@ -27,6 +27,7 @@
         <div class="tab" data-tab="vendas">Vendas</div>
         <div class="tab" data-tab="config">Configurações</div>
         <div class="tab" data-tab="relatorios">Relatórios</div>
+        <div class="tab" data-tab="promocoes">Promoções</div>
       </div>
 
       <form method="POST" action="/admin/logout" style="margin-left: 10px">
@@ -643,6 +644,121 @@
             </ul>
           </div>
         </div>
+<div id="promocoes" class="card" style="display: none">
+  <h2>🔥 Promoções</h2>
+  <div class="muted">
+    Crie promoções por tempo limitado para produtos do cardápio.
+  </div>
+
+  <!-- 🔥 LAYOUT EM DUAS COLUNAS -->
+  <div class="promocoes-layout" style="margin-top:16px">
+
+    <!-- ================= COLUNA ESQUERDA ================= -->
+    <div class="promocoes-form card">
+      <h3>➕ Nova Promoção</h3>
+
+      <form id="formPromocao" style="display: grid; gap: 12px">
+
+        <label class="small">Nome da promoção</label>
+        <input type="text" name="nome" required />
+
+        <label class="small">Tipo de desconto</label>
+        <select name="tipo_desconto" required>
+          <option value="">Selecione</option>
+          <option value="percentual">Percentual (%)</option>
+          <option value="valor_fixo">Valor fixo (R$)</option>
+        </select>
+
+        <label class="small">Valor do desconto</label>
+        <input type="number" step="0.01" name="valor_desconto" required />
+
+        <label class="small">Início da promoção</label>
+        <input type="datetime-local" name="data_inicio" required />
+
+        <label class="small">Fim da promoção</label>
+        <input type="datetime-local" name="data_fim" required />
+
+        <label class="small">Produtos em promoção</label>
+        <label class="small">Produtos em promoção</label>
+
+<select
+  name="produtos[]"
+  id="produtosSelect"
+  multiple
+  size="6"
+  required
+></select>
+
+<small class="muted">
+  Segure <b>Ctrl</b> (Windows) ou <b>Cmd</b> (Mac) para selecionar vários produtos
+</small>
+
+
+        <button class="btn" type="submit">Ativar Promoção</button>
+      </form>
+    </div>
+
+    <!-- ================= COLUNA DIREITA ================= -->
+    <div class="promocoes-lista-wrapper">
+      <h3 class="section-title">📋 Promoções Criadas</h3>
+
+      <div id="lista-promocoes" class="promocoes-lista">
+        <p class="muted">Carregando promoções...</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="modalEditarPromocao" class="modal-overlay" style="display: none">
+  <div class="modal">
+    <h3>✏️ Editar Promoção</h3>
+
+    <form id="formEditarPromocao" class="modal-form">
+      <input type="hidden" name="id" />
+
+      <label>Nome da promoção</label>
+      <input type="text" name="nome" required />
+
+      <label>Tipo de desconto</label>
+      <select name="tipo_desconto" required>
+        <option value="percentual">Percentual (%)</option>
+        <option value="valor_fixo">Valor fixo (R$)</option>
+      </select>
+
+      <label>Valor do desconto</label>
+      <input type="number" step="0.01" name="valor_desconto" required />
+
+      <label>Início da promoção</label>
+      <input type="datetime-local" name="data_inicio" required />
+
+      <label>Fim da promoção</label>
+      <input type="datetime-local" name="data_fim" required />
+
+      <label>Produtos em promoção</label>
+      <label class="small">Produtos em promoção</label>
+
+<select
+  name="produtos[]"
+  id="editarProdutosSelect"
+  multiple
+  size="6"
+></select>
+
+<small class="muted">
+  Segure <b>Ctrl</b> (Windows) ou <b>Cmd</b> (Mac) para selecionar vários produtos
+</small>
+
+
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" onclick="fecharModalEditar()">Cancelar</button>
+        <button type="submit" class="btn">Salvar Alterações</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
       </section>
 
       <aside class="sidebar">
@@ -845,6 +961,21 @@
         </div>
       </div>
     </div>
+
+    <div id="modalOverlay" class="modal-overlay">
+
+  <div id="modalBox" class="modal-box">
+
+    <h3 id="modalTitle"></h3>
+
+    <p id="modalMessage"></p>
+
+    <div id="modalButtons" class="modal-buttons"></div>
+
+  </div>
+
+</div>
+
 
     <script>
       /* ================= MODAL UNIVERSAL ================= */

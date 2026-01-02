@@ -12,9 +12,6 @@ let cepRequestInProgress = false;
 let cepAlreadyCalculated = false;
 let cepAbortController = null;
 
-
-
-
 let deliveryFee = 0;
 
 // ---------------------------
@@ -110,16 +107,25 @@ if (decisionModal) {
 // ---------------------------
 async function loadProducts() {
   try {
-    const res = await fetch("/api/products");
+    const res = await fetch(`/api/products?_=${Date.now()}`);
     const products = await res.json();
+
     renderCatalog(products || []);
     renderFilters(products || []);
+
+    // ⏱️ ATIVAR CONTADORES DE PROMOÇÃO
+    products.forEach((p) => {
+      if (p.em_promocao && p.promo_fim) {
+        startPromoCountdown(p.id, p.promo_fim);
+      }
+    });
   } catch (err) {
     console.error("Erro ao carregar produtos:", err);
     const catalog = document.getElementById("catalog");
     if (catalog) catalog.innerHTML = "<p>Erro ao carregar produtos.</p>";
   }
 }
+
 
 function renderFilters(products) {
   const filterContainer = document.getElementById("filter-container");
@@ -165,7 +171,7 @@ async function renderCatalog(products) {
     const customizable = Number(p.customizable) === 1;
 
     const card = document.createElement("article");
-    card.className = "card";
+    card.className = `card ${p.em_promocao ? "promo-card" : ""}`;
 
     // BOTÕES DINÂMICOS
     let buttonArea = "";
@@ -187,6 +193,19 @@ async function renderCatalog(products) {
 
     // CARD HTML FINAL
     card.innerHTML = `
+            ${
+              p.em_promocao
+                ? `
+    <span class="promo-badge">
+      🔥 Promoção
+      <span class="promo-timer" data-product-id="${p.id}">
+        --:--
+      </span>
+    </span>
+  `
+                : ""
+            }
+
             <img src="/static/img/${p.image}" alt="${
       p.name
     }" onerror="this.src='/static/img/default.png'">
@@ -195,7 +214,19 @@ async function renderCatalog(products) {
               <p class="card-description">${p.description || ""}</p>
 
               <div class="card-footer">
-                <p class="price">R$ ${formatCurrency(p.price)}</p>
+                ${
+                  p.em_promocao
+                    ? `
+    <div class="price promo">
+      <span class="old-price">R$ ${formatCurrency(p.price)}</span>
+      <span class="promo-price">R$ ${formatCurrency(p.preco_promocional)}</span>
+    </div>
+  `
+                    : `
+    <p class="price">R$ ${formatCurrency(p.price)}</p>
+  `
+                }
+
 
                 <div class="qty-add-container">
                     ${buttonArea}
@@ -224,7 +255,12 @@ async function renderCatalog(products) {
 
       addBtn.addEventListener("click", () => {
         const qty = parseInt(qtyInput.value) || 1;
-        addToCartSimple(p.id, p.name, Number(p.price), p.image, qty);
+        const priceToUse = p.em_promocao
+          ? Number(p.preco_promocional)
+          : Number(p.price);
+
+        addToCartSimple(p.id, p.name, priceToUse, p.image, qty);
+
         showDecisionModal();
         qtyInput.value = 1;
       });
@@ -234,7 +270,12 @@ async function renderCatalog(products) {
     const customBtn = card.querySelector(".custom-btn");
     if (customBtn) {
       customBtn.addEventListener("click", () => {
-        openConfigureModal(p.id, p.name, Number(p.price), 1, p.image);
+        const priceToUse = p.em_promocao
+          ? Number(p.preco_promocional)
+          : Number(p.price);
+
+        openConfigureModal(p.id, p.name, priceToUse, 1, p.image);
+
       });
     }
   });
@@ -438,7 +479,10 @@ function addToCartSimple(id, name, price, image, qty = 1) {
       _uid: uid("c_"),
       product_id: id,
       name,
-      unit_price: price,
+
+      unit_price: price, // preço que será cobrado (promo ou não)
+      base_price: price, // 🔥 GARANTE CONSISTÊNCIA
+
       qty,
       image: image || "default.png",
       options: {},
@@ -474,31 +518,33 @@ function concatenateAddress() {
     customerReference && customerReference.value
       ? customerReference.value.trim()
       : "";
-      
+
   let addressParts = [];
 
   // 1. Adiciona a rua se ela existir
   if (streetBase) {
-      addressParts.push(streetBase);
+    addressParts.push(streetBase);
   }
 
   // 2. Adiciona o número se ele existir
   if (number) {
-      addressParts.push(`Nº ${number}`);
+    addressParts.push(`Nº ${number}`);
   }
-  
+
   // Concatena a rua e o número (ex: "Rua Exemplo, Nº 71")
-  let combinedAddress = addressParts.join(', ').trim();
-  
+  let combinedAddress = addressParts.join(", ").trim();
+
   // 3. Adiciona a referência (entre parênteses)
   if (reference) {
-      // Garante que haja um espaço se já houver texto
-      combinedAddress = combinedAddress ? `${combinedAddress} (Ref: ${reference})` : `(Ref: ${reference})`;
+    // Garante que haja um espaço se já houver texto
+    combinedAddress = combinedAddress
+      ? `${combinedAddress} (Ref: ${reference})`
+      : `(Ref: ${reference})`;
   }
 
   // Atribui a string completa ao campo FINAL de endereço
   if (customerAddressInput) customerAddressInput.value = combinedAddress;
-  
+
   updateCheckoutButtonState();
 }
 
@@ -531,11 +577,6 @@ if (inputCEP) {
     }
   });
 }
-
-
-
-
-
 
 if (customerNumber)
   customerNumber.addEventListener("input", concatenateAddress);
@@ -665,8 +706,11 @@ if (btnCheckout) {
       id: i.product_id,
       name: i.name,
       qty: i.qty,
+
       unit_price: Number(i.unit_price).toFixed(2),
-      base_price: Number(i.base_price).toFixed(2),
+
+      base_price: Number(i.base_price ?? i.unit_price).toFixed(2),
+
       options: i.options || {},
     }));
 
@@ -694,7 +738,6 @@ if (btnCheckout) {
       });
   });
 }
-
 
 function resetCheckout() {
   const maybe = (id) => document.getElementById(id) || { value: "" };
@@ -782,6 +825,7 @@ function openConfigureModal(product_id, name, base_price, qty = 1, image = "") {
     image: image || "default.png",
     details: { sizes: [], ingredients: [], extras: [] },
   };
+
 
   if (!configureModal) return;
 
@@ -1162,11 +1206,11 @@ if (configAddBtn) {
 
     cart.push({
       _uid: uid("c_"),
-      product_id: ctx.product_id, // correto agora
+      product_id: ctx.product_id,
       name: ctx.name,
 
-      unit_price: unitPrice, // preço final da unidade
-      base_price: ctx.base_price, // preço original
+      base_price: Number(ctx.base_price) || 0, // 🔥 PREÇO PROMOCIONAL LIMPO
+      unit_price: Number(unitPrice) || 0, // 💰 COM TAMANHO + EXTRAS
 
       qty,
       image: ctx.image || "default.png",
@@ -1178,7 +1222,6 @@ if (configAddBtn) {
     showDecisionModal();
   });
 }
-
 
 function formatCEP(input) {
   let v = input.value.replace(/\D/g, "");
@@ -1228,20 +1271,12 @@ async function buscarEnderecoPorCEP(cep) {
   }
 }
 
-
-
-
-
 function mostrarFreteCalculando() {
-  const el = document.querySelector(
-    ".totals-row:nth-child(2) .amount"
-  );
+  const el = document.querySelector(".totals-row:nth-child(2) .amount");
   if (el) {
     el.innerText = "calculando...";
   }
 }
-
-
 
 async function calcularFreteBackend() {
   const cep = inputCEP.value.replace(/\D/g, "");
@@ -1253,7 +1288,7 @@ async function calcularFreteBackend() {
     const res = await fetch("/api/calcular-frete", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `cep=${encodeURIComponent(cep)}`
+      body: `cep=${encodeURIComponent(cep)}`,
     });
 
     const data = await res.json();
@@ -1266,10 +1301,6 @@ async function calcularFreteBackend() {
   }
 }
 
-
-
-
-
 function fetchAddressByCEP() {
   buscarEnderecoPorCEP();
 }
@@ -1277,6 +1308,65 @@ function fetchAddressByCEP() {
 function updateCartUI() {
   renderCart();
 }
+
+function startPromoCountdown(productId, endTimeISO) {
+  const timerEl = document.querySelector(
+    `.promo-timer[data-product-id="${productId}"]`
+  );
+
+  if (!timerEl) return;
+
+  let intervalId = null;
+
+  function update() {
+    const now = new Date();
+    const end = new Date(endTimeISO);
+    const diff = end - now;
+
+    // --- 🔥 PROMOÇÃO ACABOU ---
+    if (diff <= 0) {
+      timerEl.textContent = "Encerrada";
+
+      // para o contador
+      clearInterval(intervalId);
+
+      // 🔥 força atualizar catálogo
+      if (typeof fetchProducts === "function") {
+        fetchProducts(); // ← re-renderiza o cardapio
+      }
+
+      return;
+    }
+
+    let totalSeconds = Math.floor(diff / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    totalSeconds %= 86400;
+
+    const hours = Math.floor(totalSeconds / 3600);
+    totalSeconds %= 3600;
+
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    if (days > 0) {
+      timerEl.textContent = `${days}d ${hours.toString().padStart(2, "0")}h`;
+    } else if (hours > 0) {
+      timerEl.textContent = `${hours}h ${minutes.toString().padStart(2, "0")}m`;
+    } else if (minutes > 0) {
+      timerEl.textContent = `${minutes}m ${seconds
+        .toString()
+        .padStart(2, "0")}s`;
+    } else {
+      timerEl.textContent = `${seconds}s`;
+    }
+  }
+
+  update();
+  intervalId = setInterval(update, 1000);
+}
+
+
+
 
 // ---------------------------
 // Inicialização
@@ -1294,3 +1384,6 @@ window.openConfigureModal = openConfigureModal;
 window.closeConfigureModal = closeConfigureModal;
 window.updateFinalPrice = updateFinalPrice;
 window.configQtyInput = configQtyInput;
+window.modalChangeQty = modalChangeQty;
+window.formatCEP = formatCEP;
+window.fetchAddressByCEP = fetchAddressByCEP;
