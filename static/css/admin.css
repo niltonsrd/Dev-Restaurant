@@ -1452,7 +1452,7 @@ input:checked + .slider:before {
 }
 
 .modal-box {
-  background: #fff;
+  background: #252525;
   padding: 18px 22px;
   border-radius: 10px;
   width: 350px;
@@ -1476,6 +1476,6 @@ input:checked + .slider:before {
 }
 
 .btn-confirm { background:#28a745; color:white; }
-.btn-cancel  { background:#aaa; color:white; }
+.btn-cancel  { background:#616161; color:white; }
 .btn-error   { background:#d32f2f; color:white; }
 .btn-ok      { background:#2196f3; color:white; }
