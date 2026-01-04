@@ -16,13 +16,17 @@ const STATUS_VALIDOS = [
 // ===============================
 async function loadLogs() {
   const tbody = document.getElementById("logsBody");
-  if (!tbody) return;
+  const cards = document.getElementById("logsCards");
 
+  if (!tbody || !cards) return;
+
+  // Reset
   tbody.innerHTML = `
     <tr>
       <td colspan="6" class="muted">Carregando logs...</td>
     </tr>
   `;
+  cards.innerHTML = "";
 
   try {
     const res = await fetch("/admin/api/logs");
@@ -36,9 +40,13 @@ async function loadLogs() {
           <td colspan="6" class="muted">Nenhum log registrado.</td>
         </tr>
       `;
+      cards.innerHTML = `<div class="muted">Nenhum log registrado.</div>`;
       return;
     }
 
+    // ==========================
+    // DESKTOP (TABELA)
+    // ==========================
     tbody.innerHTML = "";
 
     logs.forEach((l) => {
@@ -53,6 +61,57 @@ async function loadLogs() {
       `;
       tbody.appendChild(tr);
     });
+
+    // ==========================
+    // MOBILE (CARDS)
+    // ==========================
+    cards.innerHTML = "";
+
+    logs.forEach((l) => {
+      const card = document.createElement("div");
+      card.className = "log-card";
+
+      card.innerHTML = `
+        <div class="log-grid">
+
+          <div class="log-item">
+            <span class="log-label">Pedido Nº</span>
+            <span class="log-value">${l.pedido_id ?? "-"}</span>
+          </div>
+
+          <div class="log-item">
+            <span class="log-label">Data</span>
+            <span class="log-value">
+              ${new Date(l.data).toLocaleString("pt-BR")}
+            </span>
+          </div>
+
+          <div class="log-item">
+            <span class="log-label">Tipo</span>
+            <span class="log-value">${l.tipo}</span>
+          </div>
+
+          <div class="log-item">
+            <span class="log-label">Ação</span>
+            <span class="log-value">${l.acao}</span>
+          </div>
+
+          <div class="log-item full">
+            <span class="log-label">Descrição</span>
+            <span class="log-value">${l.descricao}</span>
+          </div>
+
+          <div class="log-item">
+            <span class="log-label">Usuário</span>
+            <span class="log-value">${l.usuario ?? "-"}</span>
+          </div>
+
+        </div>
+      `;
+
+      cards.appendChild(card);
+    });
+
   } catch (e) {
     console.error(e);
     tbody.innerHTML = `
@@ -60,8 +119,10 @@ async function loadLogs() {
         <td colspan="6" class="error">Erro ao carregar logs</td>
       </tr>
     `;
+    cards.innerHTML = `<div class="error">Erro ao carregar logs</div>`;
   }
 }
+
 
 
 

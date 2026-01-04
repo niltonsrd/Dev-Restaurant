@@ -762,26 +762,6 @@
   </div>
 </div>
 
-<div id="logs" class="card" style="display:none">
-  <h2>📜 Logs do Sistema</h2>
-
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Data</th>
-        <th>Tipo</th>
-        <th>Ação</th>
-        <th>Pedido</th>
-        <th>Descrição</th>
-        <th>Usuário</th>
-      </tr>
-    </thead>
-    <tbody id="logsBody"></tbody>
-  </table>
-</div>
-
-
-      </section>
 
       <aside class="sidebar">
         <div class="card">
@@ -808,6 +788,30 @@
           </button>
         </div>
       </aside>
+      <div id="logs" class="card logs-section" style="display:none">
+  <h2>📜 Logs do Sistema</h2>
+
+  <!-- DESKTOP -->
+  <div class="logs-table-wrapper">
+    <table class="table logs-table">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Tipo</th>
+          <th>Ação</th>
+          <th>Pedido</th>
+          <th>Descrição</th>
+          <th>Usuário</th>
+        </tr>
+      </thead>
+      <tbody id="logsBody"></tbody>
+    </table>
+  </div>
+
+  <!-- MOBILE -->
+  <div id="logsCards" class="logs-cards"></div>
+</div>
+
     </main>
 
     <!-- modal editar produto (mantido) -->

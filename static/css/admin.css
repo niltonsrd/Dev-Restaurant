@@ -1533,3 +1533,76 @@ input:checked + .slider:before {
   margin-top: 6px;
   cursor: pointer;
 }
+
+/* ================= LOGS ================= */
+
+/* ===== DESKTOP ===== */
+.logs-table-wrapper {
+  display: block;
+  overflow-x: auto;
+}
+
+.logs-cards {
+  display: none;
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  .logs-table-wrapper {
+    display: none;
+  }
+
+  .logs-cards {
+    display: grid;
+    gap: 18px;
+  }
+
+  .log-card {
+    background: linear-gradient(180deg, #161616, #0f0f0f);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 16px;
+  }
+
+  .log-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* 🔥 UMA COLUNA */
+    gap: 10px;
+  }
+
+  .log-grid .full {
+    grid-column: span 2;
+  }
+
+  .log-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px; /* 🔥 separação real */
+  }
+  .log-label {
+    font-size: 12px;
+    color: #9a9a9a;
+    margin-bottom: 4px; /* 👈 ISSO resolve 90% */
+  }
+
+  .log-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.4;
+  }
+
+  .log-desc {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    line-height: 1.5;
+  }
+}
+
+/* ===== SEPARAÇÃO DA SIDEBAR ===== */
+.logs-section {
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
