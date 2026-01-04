@@ -66,15 +66,45 @@
 
           <!-- Tipo de Entrega -->
           <div>
-            <label>Tipo de Entrega <span class="required">*</span></label>
-            <label>
-              <input type="radio" name="tipo_entrega" value="entrega" checked />
-              Entrega
-            </label>
-            <label>
-              <input type="radio" name="tipo_entrega" value="retirada" />
-              Retirada no local
-            </label>
+           <div class="delivery-options">
+
+  <label class="delivery-card">
+    <input
+      type="radio"
+      name="tipo_entrega"
+      value="entrega"
+      checked
+    />
+    <div class="delivery-content">
+      <div class="delivery-icon">🛵</div>
+      <div>
+        <div class="delivery-title">Entrega</div>
+        <div class="delivery-desc">
+          Receba no seu endereço
+        </div>
+      </div>
+    </div>
+  </label>
+
+  <label class="delivery-card">
+    <input
+      type="radio"
+      name="tipo_entrega"
+      value="retirada"
+    />
+    <div class="delivery-content">
+      <div class="delivery-icon">🏪</div>
+      <div>
+        <div class="delivery-title">Retirada no local</div>
+        <div class="delivery-desc">
+          Buscar no balcão
+        </div>
+      </div>
+    </div>
+  </label>
+
+</div>
+
           </div>
 
           <!-- CEP -->

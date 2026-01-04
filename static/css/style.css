@@ -1254,5 +1254,81 @@ body {
   font-weight: 800;
 }
 
+/* ============================= */
+/* ENTREGA / RETIRADA - PREMIUM */
+/* ============================= */
+
+.delivery-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+/* Esconde radio nativo */
+.delivery-card input[type="radio"] {
+  display: none;
+}
+
+.delivery-card {
+  cursor: pointer;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #161616, #0f0f0f);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 14px;
+  transition: all 0.25s ease;
+}
+
+.delivery-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.delivery-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.delivery-icon {
+  font-size: 26px;
+  transition: transform 0.25s ease;
+}
+
+.delivery-title {
+  font-weight: 600;
+  color: #fff;
+}
+
+.delivery-desc {
+  font-size: 13px;
+  color: #aaa;
+}
+
+/* ✅ ESTADO SELECIONADO */
+.delivery-card input:checked + .delivery-content {
+  position: relative;
+}
+
+.delivery-card input:checked + .delivery-content::before {
+  content: "";
+  position: absolute;
+  inset: -14px;
+  border-radius: 14px;
+  border: 2px solid #ff5a00;
+  box-shadow: 0 0 0 2px rgba(255,90,0,0.2),
+              0 0 16px rgba(255,90,0,0.35);
+  pointer-events: none;
+}
+
+.delivery-card input:checked + .delivery-content .delivery-icon {
+  transform: scale(1.15);
+}
+
+/* MOBILE */
+@media (max-width: 480px) {
+  .delivery-options {
+    grid-template-columns: 1fr;
+  }
+}
 
 

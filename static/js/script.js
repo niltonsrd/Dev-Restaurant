@@ -55,35 +55,11 @@ const configAddBtn = document.getElementById("configAddBtn");
 const configFinalPrice = document.getElementById("configFinalPrice");
 
 // ---------------------------
-// Ajustes de pagamento conforme tipo de entrega
-// ---------------------------
-function aplicarPagamentoRetirada() {
-  if (paymentCardBox) {
-    paymentCardBox.textContent = "Pagamento será feito na retirada 💳";
-  }
-
-  if (paymentCashBox) {
-    const label = paymentCashBox.querySelector("label");
-    if (label) label.textContent = "Pagamento será feito no balcão. Precisa de troco?";
-  }
-}
-
-function aplicarPagamentoEntrega() {
-  if (paymentCardBox) {
-    paymentCardBox.textContent = "O motoboy leva a maquininha 💳";
-  }
-
-  if (paymentCashBox) {
-    const label = paymentCashBox.querySelector("label");
-    if (label) label.textContent = "Precisa de troco?";
-  }
-}
-
-
-// ---------------------------
 // Tipo de Entrega (Entrega x Retirada)
 // ---------------------------
-const tipoEntregaRadios = document.querySelectorAll('input[name="tipo_entrega"]');
+const tipoEntregaRadios = document.querySelectorAll(
+  'input[name="tipo_entrega"]'
+);
 
 // Campos que já existem (SEM criar nada novo)
 const entregaElements = [
@@ -97,6 +73,10 @@ const entregaElements = [
   customerReference,
 ];
 
+// ---------------------------
+// Ajustes de pagamento
+// (MANTENDO OS NOMES ORIGINAIS)
+// ---------------------------
 function aplicarPagamentoRetirada() {
   if (paymentCardBox) {
     paymentCardBox.textContent = "Pagamento será feito na retirada 💳";
@@ -105,7 +85,8 @@ function aplicarPagamentoRetirada() {
   if (paymentCashBox) {
     const label = paymentCashBox.querySelector("label");
     if (label) {
-      label.textContent = "Pagamento será feito no balcão. Precisa de troco?";
+      label.textContent =
+        "Pagamento será feito no balcão. Precisa de troco?";
     }
   }
 }
@@ -123,49 +104,57 @@ function aplicarPagamentoEntrega() {
   }
 }
 
-
+// ---------------------------
+// Aplicar tipo de entrega
+// ---------------------------
 function aplicarTipoEntrega(tipo) {
-  if (tipo === "retirada") {
-    // 🔴 Esconde campos
-    entregaElements.forEach((el) => {
-      if (el) el.style.display = "none";
-    });
+  const isRetirada = tipo === "retirada";
 
-    // 🔴 Zera frete
-    currentDeliveryFee = 0;
-    if (deliveryTaxInput) deliveryTaxInput.value = "0.00";
+  // Campos de endereço
+  entregaElements.forEach((el) => {
+    if (el) el.style.display = isRetirada ? "none" : "";
+  });
 
-    // 🔴 Limpa dados
+  // Limpeza quando for retirada
+  if (isRetirada) {
     if (inputCEP) inputCEP.value = "";
     if (customerStreet) customerStreet.value = "";
     if (customerNumber) customerNumber.value = "";
     if (customerReference) customerReference.value = "";
     if (customerAddressInput) customerAddressInput.value = "";
 
-    // 🆕 Ajusta textos do pagamento
+    currentDeliveryFee = 0;
+    if (deliveryTaxInput) deliveryTaxInput.value = "0.00";
+
     aplicarPagamentoRetirada();
-
-    updateSummaryDisplay();
   } else {
-    // 🟢 Mostra campos
-    entregaElements.forEach((el) => {
-      if (el) el.style.display = "";
-    });
-
-    // 🆕 Ajusta textos do pagamento
     aplicarPagamentoEntrega();
   }
 
+  updateSummaryDisplay();
   updateCheckoutButtonState();
 }
 
-
+// ---------------------------
 // Listener dos radios
-tipoEntregaRadios.forEach(radio => {
+// ---------------------------
+tipoEntregaRadios.forEach((radio) => {
   radio.addEventListener("change", () => {
     aplicarTipoEntrega(radio.value);
   });
 });
+
+// ---------------------------
+// Estado inicial (IMPORTANTE)
+// ---------------------------
+const tipoInicial = document.querySelector(
+  'input[name="tipo_entrega"]:checked'
+);
+
+if (tipoInicial) {
+  aplicarTipoEntrega(tipoInicial.value);
+}
+
 
 
 // ---------------------------
