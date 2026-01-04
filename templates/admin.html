@@ -28,11 +28,12 @@
         <div class="tab" data-tab="config">Configurações</div>
         <div class="tab" data-tab="relatorios">Relatórios</div>
         <div class="tab" data-tab="promocoes">Promoções</div>
+        <div class="tab" data-tab="logs">📜 Logs</div>
+        <form method="POST" action="/admin/logout" style="margin-left: 10px">
+          <button class="logout-btn">Sair</button>
+        </form>
       </div>
 
-      <form method="POST" action="/admin/logout" style="margin-left: 10px">
-        <button class="logout-btn">Sair</button>
-      </form>
     </div>
 
     <main>
@@ -288,6 +289,10 @@
               <button class="btn btn-danger" id="btn-download-pdf">
                 ⬇️ Baixar Relatório Detalhado em (CSV/Excel)
               </button>
+              <button class="btn btn-success" onclick="baixarRelatorioExcel()">
+  ⬇️ Baixar Relatório Premium (Excel)
+</button>
+
             </div>
           </div>
 
@@ -376,8 +381,7 @@
                 />
 
                 <label class="small">Descrição</label>
-                <textarea name="site_description" style="min-height: 70px">
-        {{ settings.site_description }}</textarea
+                <textarea name="site_description" style="min-height: 70px">{{ settings.site_description }}</textarea
                 >
               </div>
             </div>
@@ -758,6 +762,24 @@
   </div>
 </div>
 
+<div id="logs" class="card" style="display:none">
+  <h2>📜 Logs do Sistema</h2>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Tipo</th>
+        <th>Ação</th>
+        <th>Pedido</th>
+        <th>Descrição</th>
+        <th>Usuário</th>
+      </tr>
+    </thead>
+    <tbody id="logsBody"></tbody>
+  </table>
+</div>
+
 
       </section>
 
@@ -825,6 +847,7 @@
         <h3>Detalhes da Venda <span id="vendaIdTitle"></span></h3>
         <div id="vendaInfo" class="small muted"></div>
         <div class="items" id="vendaItems"></div>
+        <div id="pixComprovanteBox" style="display:none"></div>
 
         <div style="display: flex; gap: 8px; margin-top: 12px">
           <button class="btn" id="btnDownloadNota">Baixar Nota (PDF)</button>

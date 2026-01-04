@@ -64,6 +64,19 @@
           >
           <input id="customerName" placeholder="Nome de quem recebe" required />
 
+          <!-- Tipo de Entrega -->
+          <div>
+            <label>Tipo de Entrega <span class="required">*</span></label>
+            <label>
+              <input type="radio" name="tipo_entrega" value="entrega" checked />
+              Entrega
+            </label>
+            <label>
+              <input type="radio" name="tipo_entrega" value="retirada" />
+              Retirada no local
+            </label>
+          </div>
+
           <!-- CEP -->
           <label for="inputCEP"
             >CEP (Para cálculo da Taxa) <span class="required">*</span></label

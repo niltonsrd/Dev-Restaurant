@@ -223,6 +223,22 @@ def get_distancia_real_km(origem, destino):
     distancia_metros = data["routes"][0]["distance"]
     return distancia_metros / 1000  # km
 
+def registrar_log(tipo, acao, descricao, pedido_id=None, usuario="admin"):
+    print("🧪 registrar_log FOI CHAMADO:", tipo, acao, pedido_id)
+
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("""
+            INSERT INTO logs (tipo, acao, descricao, pedido_id, usuario)
+            VALUES (?, ?, ?, ?, ?)
+        """, (tipo, acao, descricao, pedido_id, usuario))
+        db.commit()
+    except Exception as e:
+        print("❌ ERRO AO REGISTRAR LOG:", e)
+
+
+
 
 # =============================
 # Inicializar tabela de settings
@@ -905,6 +921,8 @@ def api_checkout():
     # ⚠️ ATENÇÃO: Assumindo que você tem as funções auxiliares (get_settings, load_settings_dict, get_db, now_br) e variáveis globais (BASE_DIR) definidas no seu escopo.
 
     data = request.form
+    tipo_entrega = (data.get("tipo_entrega") or "entrega").strip().lower()
+
 
     # ------------------------------
     #   CAMPOS DO CLIENTE (SIMPLIFICADO e CORRIGIDO)
@@ -919,8 +937,10 @@ def api_checkout():
 
     if not customer_address:
         customer_address = "Endereço não informado"
-
-    print(f"DEBUG: customer_address recebido: {customer_address}")    
+  
+    if tipo_entrega == "retirada":
+        customer_address = "Retirada no local"
+  
     
     # ------------------------------
     #   RESTO DOS CAMPOS
@@ -942,8 +962,11 @@ def api_checkout():
     except:
         cart = []
 
-    if not customer_name or customer_address == "Endereço não informado" or not cart:
-         return jsonify({'ok': False, 'error': 'Preencha nome, endereço e itens.'}), 400
+    if not customer_name or not cart:
+        return jsonify({'ok': False, 'error': 'Preencha nome e itens.'}), 400
+
+    if tipo_entrega == "entrega" and customer_address == "Endereço não informado":
+        return jsonify({'ok': False, 'error': 'Preencha o endereço para entrega.'}), 400
 
 
     # ------------------------------
@@ -992,36 +1015,48 @@ def api_checkout():
              pix_path = None # Se falhar, não salva o caminho
 
     lines = []
-    lines.append(f"🧾 *Pedido - {restaurant_name}*")
-    lines.append(f"🏪 {store_address}")
+    lines.append(f"🏪 {restaurant_name}*")
+    lines.append(f"📍 {store_address}")
     lines.append(f"📍 {store_city}")
     lines.append("")
     lines.append(f"👤 Cliente: {customer_name}")
-    lines.append(f"📍 Endereço: {customer_address}") # <-- Endereço capturado
+    lines.append(f"📦 Tipo de entrega: {'Retirada no local' if tipo_entrega == 'retirada' else 'Entrega'}")
+    if tipo_entrega == "entrega":
+        lines.append(f"📍 Endereço: {customer_address}")
+    # <-- Endereço capturado
     if customer_bairro: lines.append(f"🏙️ Bairro: {customer_bairro}")
     if customer_contact: lines.append(f"📞 Contato: {customer_contact}")
     if customer_note: lines.append(f"📝 Obs: {customer_note}")
     lines.append("")
-    lines.append(f"💳 *Pagamento:* {payment_method.capitalize()} -- O Motoboy leva a máquininha")
-
-    if payment_method == "dinheiro" and troco_para:
-        try:
-            v = float(troco_para.replace(",", "."))
-            lines.append(f"Troco para: R$ {v:.2f}")
-        except:
-            lines.append(f"Troco para: {troco_para}")
+    if tipo_entrega == "retirada":
+        lines.append(f"💳 *Pagamento:* {payment_method.capitalize()} (no balcão)")
     else:
-        lines.append("✅ Sem troco")
+        lines.append(f"💳 *Pagamento:* {payment_method.capitalize()} -- O Motoboy leva a máquininha")
 
-    if payment_method == "pix":
-       lines.append("💠 *PIX:*")
 
-    if pix_path:
-        full_link = request.host_url.rstrip("/") + pix_path
-        lines.append("📎 *Comprovante:*")
-        lines.append(full_link)
-    else:
-        lines.append("⚠️ *Comprovante não enviado*")
+    if payment_method == "dinheiro":
+        if troco_para:
+            try:
+                v = float(troco_para.replace(",", "."))
+                lines.append(f"Troco para: R$ {v:.2f}")
+            except:
+                lines.append(f"Troco para: {troco_para}")
+        else:
+            lines.append("✅ Sem troco")
+
+
+    # PIX só mostra comprovante se for ENTREGA
+    if payment_method == "pix" and tipo_entrega == "entrega":
+        lines.append("💠 *PIX:*")
+
+        if pix_path:
+            full_link = request.host_url.rstrip("/") + pix_path
+            lines.append("📎 *Comprovante:*")
+            lines.append(full_link)
+        else:
+            lines.append("⚠️ *Comprovante não enviado*")
+
+
 
 
     lines.append("")
@@ -1107,12 +1142,6 @@ def api_checkout():
     lines.append("")
     lines.append(f"📨 Pedido enviado via site {restaurant_name}.")
 
-    # formatar para URL
-    raw_text = "\n".join(lines)
-    encoded_text = quote(raw_text.encode("utf-8"))
-
-    whatsapp_url = f"https://api.whatsapp.com/send?phone={restaurant_phone}&text={encoded_text}"
-
     # ------------------------------
     #   SALVAR PEDIDO NO BANCO
     # ------------------------------
@@ -1142,6 +1171,18 @@ def api_checkout():
 ))
 
         pedido_id = cur.lastrowid
+        
+        # ------------------------------
+        #   INSERIR Nº DO PEDIDO NO WHATSAPP
+        # ------------------------------
+        lines.insert(0, f"🧾 *Pedido Nº {pedido_id}*")
+        lines.insert(1, "")  # linha em branco
+
+        raw_text = "\n".join(lines)
+        encoded_text = quote(raw_text.encode("utf-8"))
+
+        whatsapp_url = f"https://api.whatsapp.com/send?phone={restaurant_phone}&text={encoded_text}"
+
 
         # SALVAR ITENS
         for it in cart:
@@ -1175,6 +1216,15 @@ def api_checkout():
             'ok': False,
             'error': f'Erro ao salvar pedido: {str(e)}'
         }), 500
+        
+    registrar_log(
+        tipo="pedido",
+        acao="criado",
+        descricao=f"Pedido criado no site. Total R$ {total_final:.2f}",
+        pedido_id=pedido_id,
+        usuario="site"
+    )
+
 
     # ------------------------------
     #   RETORNO FINAL
@@ -1186,6 +1236,27 @@ def api_checkout():
     'pix_path': pix_path,
     'total': f"{total_final:.2f}"
 })
+    
+    
+
+@app.route("/admin/api/logs")
+def api_admin_logs():
+    if request.cookies.get("admin_auth") != "1":
+        return jsonify([])
+
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+        SELECT id, tipo, acao, descricao, pedido_id, usuario, data
+        FROM logs
+        ORDER BY data DESC
+        LIMIT 300
+    """)
+
+    rows = cur.fetchall()
+    return jsonify([dict(r) for r in rows])
+
 
 
 @app.route('/pix/<filename>')
@@ -2230,23 +2301,24 @@ def admin_relatorios():
     return render_template('admin_relatorios.html')
 
 # --------------------------------------------------------------------------
-# NOVA ROTA: GERAR RELATÓRIO DETALHADO EM PDF
+# RELATÓRIO PREMIUM DE VENDAS (CSV)
 # --------------------------------------------------------------------------
 @app.route('/admin/relatorio/csv', methods=['GET'])
 def admin_relatorio_csv():
-    # 1. Autenticação e Autorização
+    import io, csv
+    from datetime import datetime, timedelta, timezone
+
+    # 🔐 Autenticação
     if request.cookies.get('admin_auth') != '1':
         return jsonify({"ok": False, "error": "Acesso negado"}), 403
 
-    # 2. Obter e Validar o Período
-    periodo = request.args.get('periodo', 'diario') # diario, semanal, mensal
-    
-    # Fuso horário do Brasil (BRT)
+    # 📆 Período
+    periodo = request.args.get('periodo', 'diario')
+
     fuso_brt = timezone(timedelta(hours=-3))
     agora_br = datetime.now(fuso_brt)
-    
+
     if periodo == 'diario':
-        # Início do dia na hora local (BRT)
         data_inicio = agora_br.replace(hour=0, minute=0, second=0, microsecond=0)
     elif periodo == 'semanal':
         data_inicio = agora_br - timedelta(days=7)
@@ -2255,100 +2327,344 @@ def admin_relatorio_csv():
     else:
         return jsonify({"ok": False, "error": "Período inválido"}), 400
 
-    # Converter para UTC e formatar como string para a query no SQLite
-    # Assumindo que o formato salvo no banco é 'YYYY-MM-DD HH:MM:SS'
-    data_inicio_utc_str = data_inicio.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
-    
-    # 3. Buscar Dados Detalhados no Banco de Dados
-    conn = get_db()
+    data_inicio_utc = data_inicio.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+    # 🗄️ Buscar dados
+    db = get_db()
     try:
-        query = """
+        pedidos = db.execute("""
             SELECT
                 id,
                 nome_cliente,
                 total,
+                delivery_fee,
                 forma_pagamento,
                 status,
-                data,
-                delivery_fee
+                data
             FROM pedidos
-            WHERE data >= ? 
+            WHERE data >= ?
             ORDER BY data DESC
-        """
-        pedidos = conn.execute(query, (data_inicio_utc_str,)).fetchall()
-    except Exception as e:
-        print(f"Erro ao buscar pedidos: {e}")
-        return jsonify({"ok": False, "error": f"Erro ao buscar pedidos no banco: {e}"}), 500
+        """, (data_inicio_utc,)).fetchall()
     finally:
-        conn.close()
+        db.close()
 
-    # Variável para acumular o total
+    # 💰 Totais
+    subtotal_geral = 0.0
+    taxa_entrega_total = 0.0
     total_geral = 0.0
 
-    # 4. Gerar o Arquivo CSV
+    # 📄 CSV
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-    # Cabeçalho do CSV
-    headers = ["ID", "Cliente", "Total (R$)", "Taxa Entrega (R$)", "Forma Pagamento", "Status", "Data_Hora_BRT"]
+    # ================= CABEÇALHO PREMIUM =================
+    writer.writerow(["RELATÓRIO DE VENDAS"])
+    writer.writerow(["Restaurante & Pizzaria do NT"])
+    writer.writerow([f"Período:", periodo.capitalize()])
+    writer.writerow([f"Gerado em:", agora_br.strftime('%d/%m/%Y %H:%M:%S')])
+    writer.writerow([])
+
+    # ================= TABELA =================
+    headers = [
+        "ID",
+        "Cliente",
+        "Total (R$)",
+        "Taxa Entrega (R$)",
+        "Forma de Pagamento",
+        "Status",
+        "Data / Hora (BRT)"
+    ]
     writer.writerow(headers)
 
-    # Formato de data assumido no seu banco de dados
     DB_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
-    
-    # Preencher as linhas
-    for pedido in pedidos:
-        # Tenta somar o total
-        try:
-            total_geral += pedido['total']
-        except TypeError:
-            # Garante que o total é um número antes de somar
-            pass # Apenas ignora se for None ou outro tipo inesperado
 
-        # 4.1. Conversão de Data/Hora (Data do banco (UTC) para BRT)
+    for p in pedidos:
         try:
-            # CORREÇÃO DO ERRO DE DATA: Usamos strptime e removemos info de fuso antes da conversão
-            # Assumimos que a data no banco está no formato 'YYYY-MM-DD HH:MM:SS' em UTC
-            dt_utc = datetime.strptime(pedido['data'], DB_DATE_FORMAT).replace(tzinfo=timezone.utc)
-            
-            # Converte para o fuso horário local (BRT)
+            total = float(p['total'] or 0)
+            taxa = float(p['delivery_fee'] or 0)
+        except:
+            total = 0
+            taxa = 0
+
+        subtotal_geral += (total - taxa)
+        taxa_entrega_total += taxa
+        total_geral += total
+
+        try:
+            dt_utc = datetime.strptime(p['data'], DB_DATE_FORMAT).replace(tzinfo=timezone.utc)
             dt_br = dt_utc.astimezone(fuso_brt)
-            data_formatada = dt_br.strftime('%Y-%m-%d %H:%M:%S')
-        except Exception:
-            # Caso a string não corresponda ao formato, usamos um valor padrão
-            data_formatada = "Data Inválida"
+            data_formatada = dt_br.strftime('%d/%m/%Y %H:%M')
+        except:
+            data_formatada = "Data inválida"
 
-        # 4.2. Escrita da Linha no CSV
         writer.writerow([
-            pedido['id'],
-            pedido['nome_cliente'] or 'Sem nome',
-            f"{pedido['total']:.2f}".replace('.', ','),
-            f"{pedido['delivery_fee']:.2f}".replace('.', ','),
-            pedido['forma_pagamento'].capitalize(),
-            pedido['status'].capitalize(),
+            p['id'],
+            p['nome_cliente'] or '—',
+            f"{total:.2f}".replace('.', ','),
+            f"{taxa:.2f}".replace('.', ','),
+            (p['forma_pagamento'] or '').capitalize(),
+            (p['status'] or '').replace('_', ' ').title(),
             data_formatada
         ])
-    
-    # 5. ADICIONAR LINHA DE TOTALIZAÇÃO NO FINAL DO CSV
-    writer.writerow([]) # Linha em branco para separação
-    
-    # Linha do total geral
-    writer.writerow([
-        "TOTAL GERAL:", 
-        "", # Cliente
-        f"{total_geral:.2f}".replace('.', ','), # Total Formatado
-        "", # Taxa Entrega
-        "", # Forma Pagamento
-        "", # Status
-        "" # Data/Hora
-    ])
-    
-    # 6. Retornar o CSV como resposta HTTP
+
+    # ================= RESUMO FINANCEIRO =================
+    writer.writerow([])
+    writer.writerow(["RESUMO FINANCEIRO"])
+    writer.writerow(["Subtotal produtos (R$):", f"{subtotal_geral:.2f}".replace('.', ',')])
+    writer.writerow(["Taxa de entrega (R$):", f"{taxa_entrega_total:.2f}".replace('.', ',')])
+    writer.writerow(["TOTAL GERAL (R$):", f"{total_geral:.2f}".replace('.', ',')])
+
+    # 📤 Resposta
     response = make_response(output.getvalue())
-    response.headers["Content-Disposition"] = f"attachment; filename=relatorio_detalhado_{periodo}.csv"
-    response.headers["Content-type"] = "text/csv; charset=utf-8"
-    
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=relatorio_vendas_{periodo}_{agora_br.strftime('%d-%m-%Y')}.csv"
+    )
+    response.headers["Content-Type"] = "text/csv; charset=utf-8"
+
     return response
+
+# --------------------------------------------------------------------------
+# RELATÓRIO PREMIUM DE VENDAS (EXCEL)
+# --------------------------------------------------------------------------
+from flask import make_response, request, jsonify
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.chart import BarChart, Reference
+from openpyxl.chart.series import DataPoint
+from datetime import datetime, timedelta, timezone
+import io
+
+@app.route('/admin/relatorio/excel', methods=['GET'])
+def admin_relatorio_excel():
+    if request.cookies.get('admin_auth') != '1':
+        return jsonify({"ok": False, "error": "Acesso negado"}), 403
+
+    # =======================
+    # ⏱ PERÍODO
+    # =======================
+    periodo = request.args.get('periodo', 'diario')
+
+    fuso_brt = timezone(timedelta(hours=-3))
+    agora = datetime.now(fuso_brt)
+
+    if periodo == 'diario':
+        inicio = agora.replace(hour=0, minute=0, second=0, microsecond=0)
+        periodo_label = "Diário"
+    elif periodo == 'semanal':
+        inicio = agora - timedelta(days=7)
+        periodo_label = "Últimos 7 dias"
+    elif periodo == 'mensal':
+        inicio = agora - timedelta(days=30)
+        periodo_label = "Últimos 30 dias"
+    else:
+        return jsonify({"ok": False, "error": "Período inválido"}), 400
+
+    inicio_utc = inicio.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+    # =======================
+    # 📥 BUSCA DADOS
+    # =======================
+    db = get_db()
+    pedidos = db.execute("""
+        SELECT id, nome_cliente, total, delivery_fee, forma_pagamento, status, data
+        FROM pedidos
+        WHERE data >= ?
+        ORDER BY data DESC
+    """, (inicio_utc,)).fetchall()
+
+    # =======================
+    # 📊 EXCEL
+    # =======================
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Relatório de Vendas"
+
+    # =======================
+    # 🎨 ESTILOS
+    # =======================
+    title_font = Font(size=16, bold=True, color="FFFFFF")
+    subtitle_font = Font(size=11, color="DDDDDD")
+    header_font = Font(bold=True, color="FFFFFF")
+    bold_font = Font(bold=True)
+
+    fill_dark = PatternFill("solid", fgColor="2F2F2F")
+    fill_orange = PatternFill("solid", fgColor="FF6A00")
+    fill_gray = PatternFill("solid", fgColor="F4F4F4")
+    fill_summary = PatternFill("solid", fgColor="EDEDED")
+
+    center = Alignment(horizontal="center", vertical="center")
+    left = Alignment(horizontal="left", vertical="center")
+
+    border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
+
+    STATUS_THEME = {
+        "concluido": {"label": "Concluído", "color": "1CD43F"},
+        "pendente":  {"label": "Pendente",  "color": "EAB10B"},
+        "cancelado": {"label": "Cancelado", "color": "F22000"},
+    }
+
+    # =======================
+    # 🧾 CABEÇALHO
+    # =======================
+    ws.merge_cells("A1:G1")
+    ws["A1"] = "RELATÓRIO DE VENDAS"
+    ws["A1"].font = title_font
+    ws["A1"].fill = fill_dark
+    ws["A1"].alignment = center
+
+    ws.merge_cells("A2:G2")
+    ws["A2"] = "Restaurante & Pizzaria do NT"
+    ws["A2"].font = subtitle_font
+    ws["A2"].fill = fill_dark
+    ws["A2"].alignment = center
+
+    ws["A4"] = "Período:"
+    ws["B4"] = periodo_label
+    ws["A5"] = "Gerado em:"
+    ws["B5"] = agora.strftime("%d/%m/%Y %H:%M")
+
+    ws["A4"].font = bold_font
+    ws["A5"].font = bold_font
+
+    # =======================
+    # 📋 TABELA DE PEDIDOS
+    # =======================
+    ws.append([])
+    headers = ["ID", "Cliente", "Total (R$)", "Taxa Entrega (R$)", "Pagamento", "Status", "Data / Hora"]
+    ws.append(headers)
+
+    header_row = ws.max_row
+    for col in range(1, 8):
+        c = ws.cell(row=header_row, column=col)
+        c.font = header_font
+        c.fill = fill_orange
+        c.alignment = center
+        c.border = border
+
+    total_produtos = 0
+    total_entrega = 0
+    status_count = {"concluido": 0, "pendente": 0, "cancelado": 0}
+
+    for i, p in enumerate(pedidos, start=1):
+        dt = datetime.strptime(p["data"], "%Y-%m-%d %H:%M:%S") \
+            .replace(tzinfo=timezone.utc) \
+            .astimezone(fuso_brt) \
+            .strftime("%d/%m/%Y %H:%M")
+
+        ws.append([
+            p["id"],
+            p["nome_cliente"],
+            float(p["total"]),
+            float(p["delivery_fee"]),
+            p["forma_pagamento"].capitalize(),
+            p["status"].capitalize(),
+            dt
+        ])
+
+        row = ws.max_row
+        total_produtos += float(p["total"])
+        total_entrega += float(p["delivery_fee"])
+
+        status_key = p["status"].lower()
+        status_count[status_key] = status_count.get(status_key, 0) + 1
+
+        for col in range(1, 8):
+            cell = ws.cell(row=row, column=col)
+            cell.border = border
+            cell.alignment = left
+            if i % 2 == 0:
+                cell.fill = fill_gray
+
+        if status_key in STATUS_THEME:
+            s = ws.cell(row=row, column=6)
+            s.fill = PatternFill("solid", fgColor=STATUS_THEME[status_key]["color"])
+            s.font = Font(bold=True)
+            s.alignment = center
+
+    # =======================
+    # 💰 RESUMO FINANCEIRO
+    # =======================
+    ws.append([])
+    ws.append(["RESUMO FINANCEIRO"])
+    ws.append(["Subtotal produtos (R$)", total_produtos])
+    ws.append(["Taxa de entrega (R$)", total_entrega])
+    ws.append(["TOTAL GERAL (R$)", total_produtos + total_entrega])
+
+    for r in range(ws.max_row - 3, ws.max_row + 1):
+        ws.cell(row=r, column=1).font = bold_font
+        ws.cell(row=r, column=1).fill = fill_summary
+
+    ws.cell(row=ws.max_row, column=2).font = Font(bold=True, size=12)
+
+    # =======================
+    # 📊 STATUS + GRÁFICO
+    # =======================
+    status_start = ws.max_row + 2
+
+    ws[f"A{status_start}"] = "STATUS DOS PEDIDOS"
+    ws[f"A{status_start}"].font = bold_font
+
+    ws.append(["Status", "Quantidade"])
+    hdr = ws.max_row
+    ws[f"A{hdr}"].font = ws[f"B{hdr}"].font = bold_font
+    ws[f"A{hdr}"].fill = ws[f"B{hdr}"].fill = fill_gray
+
+    for key, cfg in STATUS_THEME.items():
+        ws.append([cfg["label"], status_count.get(key, 0)])
+        r = ws.max_row
+        ws[f"A{r}"].fill = PatternFill("solid", fgColor=cfg["color"])
+        ws[f"A{r}"].font = bold_font
+
+    chart = BarChart()
+    chart.title = "Pedidos por Status"
+    chart.y_axis.title = "Quantidade"
+
+    data = Reference(ws, min_col=2, min_row=hdr + 1, max_row=ws.max_row)
+    labels = Reference(ws, min_col=1, min_row=hdr + 1, max_row=ws.max_row)
+
+    chart.add_data(data, titles_from_data=False)
+    chart.set_categories(labels)
+
+    for i, key in enumerate(STATUS_THEME.keys()):
+        dp = DataPoint(idx=i)
+        dp.graphicalProperties.solidFill = STATUS_THEME[key]["color"]
+        chart.series[0].data_points.append(dp)
+
+    chart.width = 18
+    chart.height = 10
+
+    ws.add_chart(chart, "I3")
+
+    # =======================
+    # 📏 COLUNAS
+    # =======================
+    ws.column_dimensions["A"].width = 10
+    ws.column_dimensions["B"].width = 24
+    ws.column_dimensions["C"].width = 14
+    ws.column_dimensions["D"].width = 18
+    ws.column_dimensions["E"].width = 18
+    ws.column_dimensions["F"].width = 16
+    ws.column_dimensions["G"].width = 22
+
+    # =======================
+    # 📤 DOWNLOAD
+    # =======================
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = make_response(output.read())
+    response.headers["Content-Disposition"] = f"attachment; filename=relatorio_vendas_{periodo}.xlsx"
+    response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    return response
+
+
 
 # Lembre-se de importar get_db se ainda não o fez.
 
@@ -2356,13 +2672,48 @@ def admin_relatorio_csv():
 def api_admin_vendas():
     if request.cookies.get('admin_auth') != '1':
         return jsonify({'ok': False, 'error': 'Acesso negado'}), 403
+
     db = get_db()
     cur = db.cursor()
-    # 🟢 CORREÇÃO DA ORDENAÇÃO NA API:
-    cur.execute("SELECT id, nome_cliente, endereco, telefone, total, forma_pagamento, status, observacoes, delivery_fee, data FROM pedidos ORDER BY id DESC")
+
+    cur.execute("""
+        SELECT 
+            id,
+            nome_cliente,
+            endereco,
+            telefone,
+            total,
+            forma_pagamento,
+            status,
+            observacoes,
+            delivery_fee,
+            data,
+            pix_comprovante,
+
+            CASE
+                WHEN forma_pagamento = 'pix'
+                     AND (pix_comprovante IS NULL OR pix_comprovante = '')
+                THEN 1
+                ELSE 0
+            END AS pix_pendente,
+
+            CASE
+                WHEN forma_pagamento = 'pix'
+                     AND pix_comprovante IS NOT NULL
+                     AND pix_comprovante != ''
+                THEN 1
+                ELSE 0
+            END AS pix_enviado
+
+        FROM pedidos
+        ORDER BY id DESC
+    """)
+
     rows = cur.fetchall()
     pedidos = [dict(r) for r in rows]
     return jsonify(pedidos)
+
+
 
 @app.route('/admin/api/novos-pedidos')
 def admin_api_novos_pedidos():
@@ -2712,9 +3063,6 @@ def gerar_nota(pedido_id):
     return send_from_directory(app.config['NOTAS_FOLDER'], filename, as_attachment=False)
 
 
-
-
-
 @app.route('/admin/vendas/<int:pedido_id>/status', methods=['POST'])
 def api_update_venda_status(pedido_id):
     if request.cookies.get('admin_auth') != '1':
@@ -2767,6 +3115,36 @@ def api_update_venda_status(pedido_id):
                 agora,
                 pedido_id
             ))
+            
+        # 🔥 REGRA: confirmar PIX automaticamente ao concluir pedido
+        if novo_status == "concluido":
+            cur.execute("""
+                UPDATE pedidos
+                SET pix_comprovante = 
+                    CASE
+                        WHEN forma_pagamento = 'pix'
+                            AND (pix_comprovante IS NULL OR pix_comprovante = '')
+                        THEN 'PIX_CONFIRMADO_NO_BALCAO'
+                        ELSE pix_comprovante
+                    END
+                WHERE id = ?
+            """, (pedido_id,))
+
+        registrar_log(
+            tipo="pedido",
+            acao="status_change",
+            descricao=f"Status alterado de {pedido['status']} para {novo_status}",
+            pedido_id=pedido_id,
+            usuario="admin"
+        )
+        registrar_log(
+            tipo="pagamento",
+            acao="pix_confirmado",
+            descricao="PIX confirmado manualmente no balcão",
+            pedido_id=pedido_id,
+            usuario="admin"
+        ) 
+
 
         db.commit()
 
@@ -2807,15 +3185,37 @@ def api_update_venda_status(pedido_id):
 def api_delete_venda(pedido_id):
     if request.cookies.get('admin_auth') != '1':
         return jsonify({'ok': False, 'error': 'Acesso negado'}), 403
+
     try:
         db = get_db()
         cur = db.cursor()
+
+        # 🔎 Busca dados antes de apagar (para log)
+        cur.execute("SELECT nome_cliente, total FROM pedidos WHERE id = ?", (pedido_id,))
+        pedido = cur.fetchone()
+
+        if not pedido:
+            return jsonify({'ok': False, 'error': 'Pedido não encontrado'}), 404
+
+        # 🗑️ Apaga itens e pedido
         cur.execute("DELETE FROM itens_pedido WHERE pedido_id = ?", (pedido_id,))
         cur.execute("DELETE FROM pedidos WHERE id = ?", (pedido_id,))
         db.commit()
+
+        # 📝 LOG DA EXCLUSÃO (AGORA NO LUGAR CERTO)
+        registrar_log(
+            tipo="pedido",
+            acao="excluido",
+            descricao=f"Pedido excluído pelo operador | Cliente: {pedido['nome_cliente']} | Total: R$ {pedido['total']:.2f}",
+            pedido_id=pedido_id,
+            usuario="admin"
+        )
+
         return jsonify({'ok': True})
+
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
+
     
 # -----------------------
 # 🟢 NOVA ROTA: RELATÓRIOS 🟢
@@ -2863,6 +3263,8 @@ def admin_api_relatorio():
     total_arrecadado = resultado['total_arrecadado'] if resultado and resultado['total_arrecadado'] else 0
     total_vendas = resultado['total_vendas'] if resultado and resultado['total_vendas'] else 0
     
+    
+    
     # 4. Retorna o Relatório
     return jsonify({
         'ok': True,
@@ -2872,6 +3274,18 @@ def admin_api_relatorio():
         # Garante que o total arrecadado seja um float para o JSON
         'total_arrecadado': float(total_arrecadado)
     })
+
+
+@app.route("/_teste_log")
+def teste_log():
+    registrar_log(
+        tipo="teste",
+        acao="manual",
+        descricao="Teste manual de log",
+        pedido_id=None,
+        usuario="admin"
+    )
+    return "LOG OK"
 
 
 # -----------------------

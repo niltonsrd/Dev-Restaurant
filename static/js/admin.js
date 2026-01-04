@@ -11,6 +11,60 @@ const STATUS_VALIDOS = [
   "cancelado",
 ];
 
+// ===============================
+// 📜 LOGS DO SISTEMA
+// ===============================
+async function loadLogs() {
+  const tbody = document.getElementById("logsBody");
+  if (!tbody) return;
+
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="6" class="muted">Carregando logs...</td>
+    </tr>
+  `;
+
+  try {
+    const res = await fetch("/admin/api/logs");
+    if (!res.ok) throw new Error("Erro ao buscar logs");
+
+    const logs = await res.json();
+
+    if (!logs.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="muted">Nenhum log registrado.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = "";
+
+    logs.forEach((l) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${new Date(l.data).toLocaleString("pt-BR")}</td>
+        <td>${l.tipo}</td>
+        <td>${l.acao}</td>
+        <td>${l.pedido_id ?? "-"}</td>
+        <td>${l.descricao}</td>
+        <td>${l.usuario ?? "-"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    console.error(e);
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="error">Erro ao carregar logs</td>
+      </tr>
+    `;
+  }
+}
+
+
+
 let pedidoStatusPendente = null;
 let novoStatusPendente = null;
 
@@ -29,6 +83,8 @@ function openTab(name) {
     name === "config" ? "block" : "none";
   document.getElementById("promocoes").style.display =
     name === "promocoes" ? "block" : "none";
+  document.getElementById("logs").style.display =
+    name === "logs" ? "block" : "none";  
 
   // 3. Executa funções específicas da aba
   if (name === "vendas") loadVendas();
@@ -36,12 +92,20 @@ function openTab(name) {
     carregarProdutosPromocao();
     carregarPromocoes();
   }
+  if (name === "logs") loadLogs();
 
 
   // 4. Dispara o evento de mudança de aba (para notificar o admin_relatorios.js) // <--- NOVO
   const event = new CustomEvent("tabChange", { detail: { tabName: name } });
   document.dispatchEvent(event);
 }
+
+function baixarRelatorioExcel() {
+  const periodo =
+    document.querySelector(".btn.active")?.dataset.periodo || "diario";
+  window.location.href = `/admin/relatorio/excel?periodo=${periodo}`;
+}
+
 
 tabs.forEach((t) => t.addEventListener("click", () => openTab(t.dataset.tab)));
 
@@ -74,18 +138,20 @@ async function loadVendas() {
     showError("Erro ao carregar vendas");
     return;
   }
+
   let data = await res.json();
 
-  // Filtros
+  // ---------- FILTROS ----------
   data = data.filter((v) => {
     if (qCliente) {
       const s = (
-        String(v.nome_cliente || v.cliente || "") +
+        String(v.nome_cliente || "") +
         " " +
         String(v.id)
       ).toLowerCase();
       if (!s.includes(qCliente)) return false;
     }
+
     if (
       statusFilter &&
       String(v.status || "").toLowerCase() !== statusFilter.toLowerCase()
@@ -96,43 +162,56 @@ async function loadVendas() {
       const d = new Date(v.data);
       if (d < new Date(dateFrom + "T00:00:00")) return false;
     }
+
     if (dateTo) {
       const d = new Date(v.data);
       if (d > new Date(dateTo + "T23:59:59")) return false;
     }
+
     return true;
   });
 
   const tbody = document.getElementById("vendasBody");
   tbody.innerHTML = "";
 
+  // ---------- RENDER ----------
   data.forEach((v) => {
     const tr = document.createElement("tr");
     const status = (v.status || "pendente").toLowerCase();
 
-    // Define a classe de cor para o select de status
+    // Classe do status
     let pillClass = "status-pendente";
     if (status === "concluido" || status === "concluído")
       pillClass = "status-concluido";
     if (status === "entrega" || status === "saiu para entrega")
       pillClass = "status-entrega";
 
-    // Injeção de data-label em cada TD para suporte ao CSS Mobile
+    // 🔥 PAGAMENTO + PIX PENDENTE
+    let pagamentoLabel = v.forma_pagamento || "—";
+
+    if (v.pix_pendente) {
+      pagamentoLabel += ' <span class="badge-pendente">PIX PENDENTE</span>';
+    }
+
+    if (v.pix_enviado) {
+      pagamentoLabel += ' <span class="badge-ok">PIX ENVIADO</span>';
+    } 
+
     tr.innerHTML = `
       <td data-label="ID">${v.id}</td>
-      <td data-label="Cliente">${v.nome_cliente || v.cliente || "—"}</td>
+      <td data-label="Cliente">${v.nome_cliente || "—"}</td>
       <td data-label="Total">R$ ${parseFloat(v.total || 0).toFixed(2)}</td>
-      <td data-label="Pagamento">${v.forma_pagamento || "—"}</td>
+      <td data-label="Pagamento">${pagamentoLabel}</td>
       <td data-label="Data">${new Date(v.data).toLocaleString()}</td>
       <td data-label="Status">
         <select class="status-select ${pillClass}" data-id="${
       v.id
-    }" style="width: 100%;">
+    }" style="width:100%">
           ${STATUS_VALIDOS.map(
             (s) => `
-            <option value="${s}" ${s === status ? "selected" : ""}>
-              ${s.replace("_", " ").toUpperCase()}
-            </option>`
+              <option value="${s}" ${s === status ? "selected" : ""}>
+                ${s.replace("_", " ").toUpperCase()}
+              </option>`
           ).join("")}
         </select>
       </td>
@@ -143,7 +222,7 @@ async function loadVendas() {
         <button class="btn mini-btn" onclick="downloadNota(${
           v.id
         })">Nota</button>
-        <button type="button" class="btn mini-btn" onclick="salvarStatus(${
+        <button class="btn mini-btn" onclick="salvarStatus(${
           v.id
         })">Atualizar</button>
         <button class="btn btn-danger mini-btn" onclick="deleteVenda(${
@@ -151,12 +230,14 @@ async function loadVendas() {
         })">Excluir</button>
       </td>
     `;
+
     tbody.appendChild(tr);
   });
 
   document.getElementById("resumo24").innerText =
     data.length + " vendas listadas";
 }
+
 
 async function salvarStatus(id) {
   const select = document.querySelector(`.status-select[data-id="${id}"]`);
@@ -385,6 +466,51 @@ async function viewVenda(id) {
   const vendRes = await fetch("/admin/api/vendas");
   const allVendas = vendRes.ok ? await vendRes.json() : [];
   const venda = allVendas.find((v) => v.id === id) || {};
+  const comprovanteBox = document.getElementById("pixComprovanteBox");
+
+  if (comprovanteBox) {
+    comprovanteBox.innerHTML = "";
+    comprovanteBox.style.display = "none";
+
+    // Só faz sentido mostrar algo se o pagamento for PIX
+    if (venda.forma_pagamento === "pix") {
+      comprovanteBox.style.display = "block";
+
+      // 1️⃣ PIX pendente (não tem comprovante)
+      if (!venda.pix_comprovante) {
+        comprovanteBox.innerHTML = `
+        <div class="pix-status pendente">
+          ⚠️ PIX pendente de pagamento
+        </div>
+      `;
+      }
+
+      // 2️⃣ PIX confirmado no balcão
+      else if (venda.pix_comprovante === "PIX_CONFIRMADO_NO_BALCAO") {
+        comprovanteBox.innerHTML = `
+        <div class="pix-status ok">
+          ✅ PIX confirmado no balcão
+        </div>
+      `;
+      }
+
+      // 3️⃣ PIX com comprovante (imagem real)
+      else if (venda.pix_comprovante.startsWith("/static/")) {
+        comprovanteBox.innerHTML = `
+        <h4>Comprovante PIX</h4>
+        <a href="${venda.pix_comprovante}" target="_blank">
+          <img 
+            src="${venda.pix_comprovante}"
+            alt="Comprovante PIX"
+            class="pix-preview"
+          >
+        </a>
+      `;
+      }
+    }
+  }
+
+
 
   const deliveryFee = Number(venda.delivery_fee || 0);
   const totalFinal = subtotal + deliveryFee;

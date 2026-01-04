@@ -55,6 +55,120 @@ const configAddBtn = document.getElementById("configAddBtn");
 const configFinalPrice = document.getElementById("configFinalPrice");
 
 // ---------------------------
+// Ajustes de pagamento conforme tipo de entrega
+// ---------------------------
+function aplicarPagamentoRetirada() {
+  if (paymentCardBox) {
+    paymentCardBox.textContent = "Pagamento será feito na retirada 💳";
+  }
+
+  if (paymentCashBox) {
+    const label = paymentCashBox.querySelector("label");
+    if (label) label.textContent = "Pagamento será feito no balcão. Precisa de troco?";
+  }
+}
+
+function aplicarPagamentoEntrega() {
+  if (paymentCardBox) {
+    paymentCardBox.textContent = "O motoboy leva a maquininha 💳";
+  }
+
+  if (paymentCashBox) {
+    const label = paymentCashBox.querySelector("label");
+    if (label) label.textContent = "Precisa de troco?";
+  }
+}
+
+
+// ---------------------------
+// Tipo de Entrega (Entrega x Retirada)
+// ---------------------------
+const tipoEntregaRadios = document.querySelectorAll('input[name="tipo_entrega"]');
+
+// Campos que já existem (SEM criar nada novo)
+const entregaElements = [
+  document.querySelector('label[for="inputCEP"]'),
+  inputCEP,
+  document.querySelector('label[for="customerStreet"]'),
+  customerStreet,
+  document.querySelector('label[for="customerNumber"]'),
+  customerNumber,
+  document.querySelector('label[for="customerReference"]'),
+  customerReference,
+];
+
+function aplicarPagamentoRetirada() {
+  if (paymentCardBox) {
+    paymentCardBox.textContent = "Pagamento será feito na retirada 💳";
+  }
+
+  if (paymentCashBox) {
+    const label = paymentCashBox.querySelector("label");
+    if (label) {
+      label.textContent = "Pagamento será feito no balcão. Precisa de troco?";
+    }
+  }
+}
+
+function aplicarPagamentoEntrega() {
+  if (paymentCardBox) {
+    paymentCardBox.textContent = "O motoboy leva a maquininha 💳";
+  }
+
+  if (paymentCashBox) {
+    const label = paymentCashBox.querySelector("label");
+    if (label) {
+      label.textContent = "Precisa de troco?";
+    }
+  }
+}
+
+
+function aplicarTipoEntrega(tipo) {
+  if (tipo === "retirada") {
+    // 🔴 Esconde campos
+    entregaElements.forEach((el) => {
+      if (el) el.style.display = "none";
+    });
+
+    // 🔴 Zera frete
+    currentDeliveryFee = 0;
+    if (deliveryTaxInput) deliveryTaxInput.value = "0.00";
+
+    // 🔴 Limpa dados
+    if (inputCEP) inputCEP.value = "";
+    if (customerStreet) customerStreet.value = "";
+    if (customerNumber) customerNumber.value = "";
+    if (customerReference) customerReference.value = "";
+    if (customerAddressInput) customerAddressInput.value = "";
+
+    // 🆕 Ajusta textos do pagamento
+    aplicarPagamentoRetirada();
+
+    updateSummaryDisplay();
+  } else {
+    // 🟢 Mostra campos
+    entregaElements.forEach((el) => {
+      if (el) el.style.display = "";
+    });
+
+    // 🆕 Ajusta textos do pagamento
+    aplicarPagamentoEntrega();
+  }
+
+  updateCheckoutButtonState();
+}
+
+
+// Listener dos radios
+tipoEntregaRadios.forEach(radio => {
+  radio.addEventListener("change", () => {
+    aplicarTipoEntrega(radio.value);
+  });
+});
+
+
+// ---------------------------
 // Utilitárias
 // ---------------------------
 function formatCurrency(value) {
@@ -701,6 +815,22 @@ if (btnCheckout) {
       if (comprovanteFile) formData.append("pix_comprovante", comprovanteFile);
     }
 
+    // ⚡ Tipo de entrega
+    let tipoEntrega = document.querySelector(
+      'input[name="tipo_entrega"]:checked'
+    ).value;
+    formData.append("tipo_entrega", tipoEntrega);
+
+    // Se for retirada, força delivery_fee = 0 e limpa endereço
+    if (tipoEntrega === "retirada") {
+      formData.set("delivery_tax", "0.00");
+      document.getElementById("inputCEP").value = "";
+      document.getElementById("customerStreet").value = "";
+      document.getElementById("customerNumber").value = "";
+      document.getElementById("customerAddress").value = "";
+      document.getElementById("customerBairro").value = "";
+    }
+
     // serializa o carrinho com as informações necessárias
     const cartForServer = cart.map((i) => ({
       id: i.product_id,
@@ -782,33 +912,39 @@ function updateCheckoutButtonState() {
   const number = (customerNumber || { value: "" }).value.trim();
   const method = paymentSelect ? paymentSelect.value : "";
   let isButtonEnabled = false;
-  if (
-    name &&
-    contact &&
-    cart.length > 0 &&
-    cep.length === 8 &&
-    street &&
-    number &&
-    address &&
-    currentDeliveryFee >= 0 &&
-    method
-  ) {
-    isButtonEnabled = true;
-    if (method === "dinheiro") {
-      if (cashNeedChange && cashNeedChange.value === "sim") {
-        const raw = (cashAmount.value || "").replace(/\D/g, "");
-        const totalFinal = getCartSubtotal() + currentDeliveryFee;
-        if (!raw || Number(raw) === 0 || parseInt(raw) / 100 < totalFinal)
-          isButtonEnabled = false;
-      }
-    } else if (method === "pix") {
-      if (
-        pixComprovante &&
-        (!pixComprovante.files || pixComprovante.files.length === 0)
-      )
-        isButtonEnabled = false;
-    }
-  }
+ const tipoEntrega = document.querySelector(
+   'input[name="tipo_entrega"]:checked'
+ )?.value;
+
+ if (
+   name &&
+   contact &&
+   cart.length > 0 &&
+   method &&
+   (tipoEntrega === "retirada" ||
+     (cep.length === 8 && street && number && address))
+ ) {
+   isButtonEnabled = true;
+   if (method === "dinheiro") {
+     if (cashNeedChange && cashNeedChange.value === "sim") {
+       const raw = (cashAmount.value || "").replace(/\D/g, "");
+       const totalFinal = getCartSubtotal() + currentDeliveryFee;
+       if (!raw || Number(raw) === 0 || parseInt(raw) / 100 < totalFinal)
+         isButtonEnabled = false;
+     }
+   } else if (method === "pix") {
+     // PIX só exige comprovante se for ENTREGA
+     if (tipoEntrega === "entrega") {
+       if (
+         pixComprovante &&
+         (!pixComprovante.files || pixComprovante.files.length === 0)
+       ) {
+         isButtonEnabled = false;
+       }
+     }
+   }
+
+ }
   if (btnCheckout) btnCheckout.disabled = !isButtonEnabled;
 }
 
@@ -1279,6 +1415,15 @@ function mostrarFreteCalculando() {
 }
 
 async function calcularFreteBackend() {
+  const tipoEntrega = document.querySelector(
+    'input[name="tipo_entrega"]:checked'
+  )?.value;
+  if (tipoEntrega === "retirada") {
+    currentDeliveryFee = 0;
+    updateSummaryDisplay();
+    return;
+  }
+
   const cep = inputCEP.value.replace(/\D/g, "");
   if (cep.length !== 8) return;
 
@@ -1374,8 +1519,20 @@ function startPromoCountdown(productId, endTimeISO) {
 document.addEventListener("DOMContentLoaded", () => {
   loadProducts();
   renderCart();
+
+  const tipoEntregaInicial = document.querySelector(
+    'input[name="tipo_entrega"]:checked'
+  )?.value;
+
+  if (tipoEntregaInicial === "retirada") {
+    aplicarPagamentoRetirada();
+  } else {
+    aplicarPagamentoEntrega();
+  }
+
   updateCheckoutButtonState();
 });
+
 
 // ---------------------------
 // Expose small helpers to global (para HTML inline handlers usados no template)
