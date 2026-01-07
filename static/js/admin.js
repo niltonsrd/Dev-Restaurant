@@ -123,6 +123,75 @@ async function loadLogs() {
   }
 }
 
+async function previewRetencao() {
+  const meses = document.getElementById("retencaoMeses").value;
+
+  const res = await fetch("/admin/api/retencao/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ meses })
+  });
+
+  const data = await res.json();
+  if (!data.ok) {
+    abrirAdminModal({
+      message: "Erro ao gerar preview da retenção.",
+      success: false
+    });
+    return;
+  }
+
+  document.getElementById("mPrevPedidos").innerText = data.pedidos;
+  document.getElementById("mPrevLogs").innerText = data.logs;
+  document.getElementById("mPrevComprovantes").innerText = data.comprovantes;
+  document.getElementById("mPrevNotas").innerText = data.notas;
+  document.getElementById("mPrevData").innerText = data.ate;
+
+  document.getElementById("modalPreviewRetencao").style.display = "flex";
+}
+
+async function executarRetencao() {
+  const meses = document.getElementById("retencaoMeses").value;
+
+  const res = await fetch("/admin/api/retencao/executar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ meses })
+  });
+
+  const data = await res.json();
+  if (!data.ok) {
+    abrirAdminModal({
+      message: "Erro ao executar política de retenção.",
+      success: false
+    });
+    return;
+  }
+
+  fecharModal("modalConfirmarRetencao");
+  fecharModal("modalPreviewRetencao");
+
+  abrirAdminModal({
+    message: "Política de retenção aplicada com sucesso.",
+    success: true
+  });
+
+  loadLogs(); // atualiza a tabela de logs
+}
+
+function abrirConfirmacaoRetencao() {
+  // Fecha o preview primeiro
+  fecharModal("modalPreviewRetencao");
+
+  // Abre o modal de confirmação
+  document.getElementById("modalConfirmarRetencao").style.display = "flex";
+}
+
+
+function fecharModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = "none";
+}
 
 
 
@@ -145,7 +214,7 @@ function openTab(name) {
   document.getElementById("promocoes").style.display =
     name === "promocoes" ? "block" : "none";
   document.getElementById("logs").style.display =
-    name === "logs" ? "block" : "none";  
+    name === "logs" ? "block" : "none";
 
   // 3. Executa funções específicas da aba
   if (name === "vendas") loadVendas();
@@ -256,7 +325,7 @@ async function loadVendas() {
 
     if (v.pix_enviado) {
       pagamentoLabel += ' <span class="badge-ok">PIX ENVIADO</span>';
-    } 
+    }
 
     tr.innerHTML = `
       <td data-label="ID">${v.id}</td>
@@ -265,30 +334,25 @@ async function loadVendas() {
       <td data-label="Pagamento">${pagamentoLabel}</td>
       <td data-label="Data">${new Date(v.data).toLocaleString()}</td>
       <td data-label="Status">
-        <select class="status-select ${pillClass}" data-id="${
-      v.id
-    }" style="width:100%">
+        <select class="status-select ${pillClass}" data-id="${v.id
+      }" style="width:100%">
           ${STATUS_VALIDOS.map(
-            (s) => `
+        (s) => `
               <option value="${s}" ${s === status ? "selected" : ""}>
                 ${s.replace("_", " ").toUpperCase()}
               </option>`
-          ).join("")}
+      ).join("")}
         </select>
       </td>
       <td class="acoes-venda">
-        <button class="btn ghost mini-btn" onclick="viewVenda(${
-          v.id
-        })">Ver</button>
-        <button class="btn mini-btn" onclick="downloadNota(${
-          v.id
-        })">Nota</button>
-        <button class="btn mini-btn" onclick="salvarStatus(${
-          v.id
-        })">Atualizar</button>
-        <button class="btn btn-danger mini-btn" onclick="deleteVenda(${
-          v.id
-        })">Excluir</button>
+        <button class="btn ghost mini-btn" onclick="viewVenda(${v.id
+      })">Ver</button>
+        <button class="btn mini-btn" onclick="downloadNota(${v.id
+      })">Nota</button>
+        <button class="btn mini-btn" onclick="salvarStatus(${v.id
+      })">Atualizar</button>
+        <button class="btn btn-danger mini-btn" onclick="deleteVenda(${v.id
+      })">Excluir</button>
       </td>
     `;
 
@@ -577,9 +641,8 @@ async function viewVenda(id) {
   const totalFinal = subtotal + deliveryFee;
 
   // 🔥 Info do cliente
-  document.getElementById("vendaInfo").innerText = `Cliente: ${
-    venda.nome_cliente || "—"
-  } • Tel: ${venda.telefone || "—"} • End.: ${venda.endereco || "—"}`;
+  document.getElementById("vendaInfo").innerText = `Cliente: ${venda.nome_cliente || "—"
+    } • Tel: ${venda.telefone || "—"} • End.: ${venda.endereco || "—"}`;
 
   // 🔥 Totais
   let totalsEl = document.getElementById("vendaTotals");
@@ -852,7 +915,7 @@ function mostrarAlertaNovoPedido(id) {
 
   const audio = new Audio("/static/alert.mp3");
   audio.volume = 1.0;
-  audio.play().catch(() => {});
+  audio.play().catch(() => { });
 
   box.onclick = () => {
     abrirVendasPorModal();
@@ -993,9 +1056,8 @@ function renderListSizes(items) {
             <span>${item.name} — <strong>R$ ${item.extra_price.toFixed(
       2
     )}</strong></span>
-            <button class="btn btn-danger btn-small" onclick="deleteVariation('size', ${
-              item.id
-            })">x</button>
+            <button class="btn btn-danger btn-small" onclick="deleteVariation('size', ${item.id
+      })">x</button>
         `;
 
     div.appendChild(row);
@@ -1034,9 +1096,8 @@ function renderListExtras(items) {
             <span>${item.name} — <strong>R$ ${item.price.toFixed(
       2
     )}</strong></span>
-            <button class="btn btn-danger btn-small" onclick="deleteVariation('extra', ${
-              item.id
-            })">x</button>
+            <button class="btn btn-danger btn-small" onclick="deleteVariation('extra', ${item.id
+      })">x</button>
         `;
     div.appendChild(row);
   });
@@ -1203,10 +1264,9 @@ async function carregarPromocoes() {
 
       <div class="promocao-info">
 
-        <span class="promocao-status ${
-          expirada
-            ? "status-expirada"
-            : p.ativo
+        <span class="promocao-status ${expirada
+          ? "status-expirada"
+          : p.ativo
             ? "status-ativa"
             : "status-inativa"
         }">
@@ -1218,11 +1278,10 @@ async function carregarPromocoes() {
         <h4>${p.nome}</h4>
 
         <small>
-          ${
-            p.tipo_desconto === "percentual"
-              ? p.valor_desconto + "% OFF"
-              : "R$ " + p.valor_desconto + " OFF"
-          }
+          ${p.tipo_desconto === "percentual"
+          ? p.valor_desconto + "% OFF"
+          : "R$ " + p.valor_desconto + " OFF"
+        }
           • ${p.total_produtos} produto(s)
         </small>
 

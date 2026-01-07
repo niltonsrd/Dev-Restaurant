@@ -51,6 +51,12 @@ STATUS_NOTIFICAVEIS = {
     "saiu_entrega": "mensagem_saiu_entrega"
 }
 
+from datetime import datetime, timedelta
+
+def calcular_data_limite(meses):
+    return (datetime.now() - timedelta(days=30 * meses)).strftime("%Y-%m-%d %H:%M:%S")
+
+
 
 def alterar_status_pedido(pedido_id, novo_status,):
     """
@@ -1257,6 +1263,110 @@ def api_admin_logs():
     rows = cur.fetchall()
     return jsonify([dict(r) for r in rows])
 
+from datetime import datetime, timedelta
+from flask import jsonify, request
+import os
+import sqlite3
+
+# ==============================
+# PREVIEW LIMPEZA DE DADOS
+# ==============================
+@app.route("/admin/api/retencao/preview", methods=["POST"])
+def preview_retencao():
+    if request.cookies.get("admin_auth") != "1":
+        return jsonify(ok=False), 403
+
+    meses = int(request.json.get("meses", 6))
+    limite = datetime.now() - timedelta(days=meses * 30)
+    limite_str = limite.strftime("%Y-%m-%d %H:%M:%S")
+
+    db = get_db()
+
+    pedidos = db.execute(
+        "SELECT COUNT(*) FROM pedidos WHERE data < ?",
+        (limite_str,)
+    ).fetchone()[0]
+
+    logs = db.execute(
+        "SELECT COUNT(*) FROM logs WHERE data < ?",
+        (limite_str,)
+    ).fetchone()[0]
+
+    comprovantes = db.execute(
+        "SELECT COUNT(*) FROM pedidos WHERE pix_comprovante IS NOT NULL AND data < ?",
+        (limite_str,)
+    ).fetchone()[0]
+
+    notas = sum(
+        1 for f in os.listdir("static/notas")
+        if os.path.getmtime(os.path.join("static/notas", f)) < limite.timestamp()
+    )
+
+    return jsonify(
+        ok=True,
+        pedidos=pedidos,
+        logs=logs,
+        comprovantes=comprovantes,
+        notas=notas,
+        ate=limite.strftime("%d/%m/%Y")
+    )
+
+# ==============================
+# EXECUTAR LIMPEZA
+# ==============================
+@app.route("/admin/api/retencao/executar", methods=["POST"])
+def executar_retencao():
+    if request.cookies.get("admin_auth") != "1":
+        return jsonify(ok=False), 403
+
+    meses = int(request.json.get("meses", 6))
+    limite = datetime.now() - timedelta(days=meses * 30)
+    limite_str = limite.strftime("%Y-%m-%d %H:%M:%S")
+
+    db = get_db()
+
+    # 🗑️ Comprovantes PIX
+    rows = db.execute(
+        "SELECT pix_comprovante FROM pedidos WHERE pix_comprovante IS NOT NULL AND data < ?",
+        (limite_str,)
+    ).fetchall()
+
+    for r in rows:
+        path = os.path.join("static/pix_comprovantes", r["pix_comprovante"])
+        if os.path.exists(path):
+            os.remove(path)
+
+    # 🗑️ Notas fiscais
+    for f in os.listdir("static/notas"):
+        path = os.path.join("static/notas", f)
+        if os.path.getmtime(path) < limite.timestamp():
+            os.remove(path)
+
+    # 🗑️ Banco
+    pedidos_removidos = db.execute(
+        "DELETE FROM pedidos WHERE data < ?",
+        (limite_str,)
+    ).rowcount
+
+    logs_removidos = db.execute(
+        "DELETE FROM logs WHERE data < ?",
+        (limite_str,)
+    ).rowcount
+
+    # 🧾 Log de auditoria
+    db.execute("""
+        INSERT INTO logs (tipo, acao, descricao, usuario)
+        VALUES (?, ?, ?, ?)
+    """, (
+        "sistema",
+        "retencao",
+        f"Política de retenção aplicada: mantidos apenas dados dos últimos {meses} meses. "
+        f"Pedidos removidos: {pedidos_removidos}, Logs removidos: {logs_removidos}.",
+        "admin"
+    ))
+
+    db.commit()
+    return jsonify(ok=True)
 
 
 @app.route('/pix/<filename>')
