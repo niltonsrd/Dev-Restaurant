@@ -1,192 +1,295 @@
-# 🍽️ Sistema de Delivery – Cardápio Online Completo com Painel Administrativo
+🍽️ Sistema de Restaurante & Delivery – Flask
 
-Sistema completo de **delivery online**, desenvolvido em **Python + Flask**, com **cardápio digital**, **carrinho inteligente**, **checkout avançado**, **integração com WhatsApp**, **itens personalizáveis**, **cálculo automático de frete por CEP** e **painel administrativo seguro**.
+Sistema completo de cardápio online, pedidos, pagamento via PIX, painel administrativo e notificações em tempo real, desenvolvido em Flask + SQLite + JavaScript, focado em uso real por restaurantes, pizzarias e lanchonetes.
 
-O sistema também gera **Nota Fiscal térmica em PDF**, com detalhamento completo dos itens vendidos (tamanhos, ingredientes e adicionais).
+📸 Visão Geral
 
----
+Este sistema permite que clientes:
 
-## 🚀 Principais Funcionalidades
+Visualizem o cardápio online
 
-### 🛒 Cardápio Online
+Montem pedidos com produtos personalizados
 
-* Listagem dinâmica de produtos via API (`/api/products`)
-* Filtros por categoria
-* Itens simples (quantidade + adicionar)
-* Itens personalizáveis via modal:
+Escolham entrega ou retirada
 
-  * Seleção única de tamanho
-  * Seleção única de ingrediente
-  * Seleção múltipla de adicionais
-* Preço final calculado automaticamente
+Paguem via PIX (QR Code + código copiável)
 
----
+Enviem comprovante
 
-### 🧺 Carrinho Inteligente
+Acompanhem o pedido via WhatsApp
 
-* Atualização em tempo real
-* Animação do valor total
-* Agrupamento correto de itens não personalizáveis
-* Resumo completo dos itens selecionados
+E permite que o administrador:
 
----
+Gerencie pedidos em tempo real
 
-### 🛵 Cálculo Automático de Frete
+Controle status do pedido (pendente → recebido → pronto → saiu para entrega → concluído)
 
-* Cálculo por CEP com fallback automático:
+Notifique automaticamente o cliente via WhatsApp
 
-  * BrasilAPI
-  * AwesomeAPI
-  * ApiCEP
-* Caso nenhuma API responda corretamente:
+Gerencie produtos, variações, promoções e configurações
 
-  * Aplica taxa máxima configurada
-* Cálculo de distância com Haversine + Nominatim
+Tenha logs completos de ações
 
----
+Controle pagamentos PIX
 
-### 💸 Métodos de Pagamento
+🚀 Funcionalidades Principais
+🛒 Cliente (Frontend)
 
-* Pix (QR Code automático)
-* Dinheiro (com cálculo de troco)
-* Cartão
+Cardápio online responsivo
 
----
+Produtos com:
 
-### 📄 Painel Administrativo
+Tamanhos
 
-* Login seguro por cookie
-* Listagem completa de pedidos
-* Visualização detalhada dos itens
-* Download da Nota Fiscal térmica em PDF
-* Gerenciamento de produtos e configurações
+Sabores
 
----
+Ingredientes
 
-### 🔐 Segurança do Painel
+Adicionais
 
-* Senha administrativa com hash
-* Alteração de senha via AJAX
-* Validações completas no backend
-* Feedback visual por modal
-* Logout automático após alteração
+Carrinho dinâmico
 
----
+Cálculo automático de total
 
-### 🧾 Nota Fiscal Térmica em PDF
+Escolha de:
 
-* Gerada com ReportLab
-* Cabeçalho personalizado
-* Logotipo da empresa
-* Tabela com itens detalhados
-* Subtotal, taxa de entrega e total geral
+📦 Entrega
 
----
+🏪 Retirada no local
 
-## 🧰 Tecnologias Utilizadas
+Pagamento via PIX
 
-* Python 3
-* Flask
-* SQLite
-* HTML / CSS / JavaScript
-* ReportLab (PDF)
-* APIs externas de CEP
+QR Code automático
 
----
+Código PIX copiável
 
-## 🛠️ Instalação
+Envio de comprovante
 
-### 1️⃣ Clone o repositório
+Envio automático do pedido via WhatsApp
 
-```bash
-git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
-cd SEU_REPOSITORIO
-```
+⚡ Pagamento PIX
 
-### 2️⃣ Crie o ambiente virtual
+Geração automática de:
 
-```bash
-python -m venv venv
-```
+Payload PIX válido (BACEN)
 
-Ative:
+QR Code
 
-**Windows**
+Botão “Copiar código PIX” (ideal para celular)
 
-```bash
-venv\Scripts\activate
-```
+Confirmação automática ou manual no painel
 
-**Linux/macOS**
+Identificação de:
 
-```bash
+PIX pendente
+
+PIX enviado
+
+PIX confirmado no balcão
+
+🧑‍💼 Painel Administrativo
+
+Login protegido
+
+Dashboard completo
+
+Lista de pedidos em tempo real
+
+Alteração de status com regras inteligentes:
+
+Entrega → saiu para entrega
+
+Retirada → pronto para retirada
+
+Modal de tempo de preparo
+
+Envio automático de mensagens WhatsApp:
+
+Pedido recebido
+
+Pedido em preparo
+
+Pedido pronto (retirada)
+
+Pedido saiu para entrega
+
+Visualização de comprovantes PIX
+
+Download de nota em PDF
+
+Exclusão de pedidos
+
+Logs completos do sistema
+
+🧾 Status do Pedido
+Status	Descrição
+pendente	Pedido criado
+recebido	Pedido confirmado pelo admin
+preparando	Em preparo
+pronto	Pronto para retirada
+saiu_entrega	Saiu para entrega
+concluido	Pedido finalizado
+cancelado	Pedido cancelado
+🔔 Notificações
+
+WhatsApp automático por status
+
+Notificação sonora no admin
+
+Aba piscando
+
+Favicon piscando
+
+Push Notification (browser)
+
+Modal de novo pedido
+
+🛍️ Produtos e Promoções
+
+CRUD completo de produtos
+
+Variações:
+
+Tamanhos
+
+Ingredientes
+
+Extras
+
+Promoções:
+
+Por valor fixo
+
+Por percentual
+
+Com período de validade
+
+Ativar / pausar promoções
+
+Logs automáticos de alterações
+
+🛠️ Tecnologias Utilizadas
+Backend
+
+Python 3
+
+Flask
+
+SQLite
+
+Gunicorn
+
+CRC16 (PIX)
+
+WhatsApp API (link direto)
+
+Frontend
+
+HTML5
+
+CSS3 (layout moderno)
+
+JavaScript puro (Vanilla JS)
+
+Fetch API
+
+Responsivo (Desktop / Mobile)
+
+📁 Estrutura do Projeto
+Dev-Restaurant/
+│
+├── app.py
+├── database.db
+├── requirements.txt
+├── README.md
+│
+├── static/
+│   ├── css/
+│   ├── js/
+│   ├── img/
+│   ├── pix_comprovantes/
+│   └── alert.mp3
+│
+├── templates/
+│   ├── index.html
+│   ├── admin.html
+│   └── base.html
+│
+└── venv/
+
+⚙️ Instalação Local
+# clonar o projeto
+git clone https://github.com/seuusuario/seurepositorio.git
+cd Dev-Restaurant
+
+# criar ambiente virtual
+python3 -m venv venv
 source venv/bin/activate
-```
 
----
-
-### 3️⃣ Instale as dependências
-
-```bash
+# instalar dependências
 pip install -r requirements.txt
-```
 
----
-
-### 4️⃣ Execute o projeto
-
-```bash
+# rodar o projeto
 python app.py
-```
+
 
 Acesse:
 
-* Site: [http://127.0.0.1:5000](http://127.0.0.1:5000)
-* Admin: [http://127.0.0.1:5000/admin](http://127.0.0.1:5000/admin)
+http://localhost:5000
 
----
+🖥️ Deploy em Produção (VPS)
 
-## 📂 Estrutura do Projeto
+Gunicorn
 
-```
-/static
-/templates
-/database
-app.py
-requirements.txt
-README_SETUP.md
-```
+Nginx
 
----
+Systemd service
 
-## 🧪 Rotas Principais
+HTTPS (recomendado)
 
-### Público
+Exemplo:
 
-* `/`
-* `/api/products`
-* `/api/checkout`
+gunicorn app:app --bind 127.0.0.1:8000 --workers 2
 
-### Admin
+🔐 Segurança
 
-* `/admin`
-* `/admin/vendas/<id>/itens`
-* `/admin/vendas/<id>/nota`
+Painel admin protegido por cookie
 
----
+Validações backend
 
-## 🔒 Segurança
+Upload seguro de imagens
 
-* Autenticação por cookie seguro
-* Senhas com hash
-* Validação e sanitização de dados
+Sanitização de dados
 
----
+Regras de status no backend (não apenas no JS)
 
-## 📌 Observações
+📌 Versionamento
 
-Projeto desenvolvido com foco em **uso real**, **segurança**, **UX profissional** e **organização de código**.
+O projeto segue Semantic Versioning:
 
----
+v1.0.0 → versão estável
+v1.1.0 → novas funcionalidades
+v1.1.1 → correções
 
-🚀 Pronto para produção, estudos ou evolução para SaaS.
+🎯 Público-Alvo
+
+Restaurantes
+
+Pizzarias
+
+Lanchonetes
+
+Delivery próprio
+
+Sistemas sob medida para clientes
+
+📄 Licença
+
+Projeto desenvolvido para uso comercial ou personalizado.
+A redistribuição sem autorização do autor não é permitida.
+
+👨‍💻 Autor
+
+Nilton Santos
+Desenvolvedor Full Stack
+Especializado em sistemas web sob medida, automações e soluções para negócios reais.
