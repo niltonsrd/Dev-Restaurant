@@ -771,31 +771,38 @@ if (generatePixBtn) {
 }
 
 function mostrarQrPix(data) {
-  if (!pixQrPreview) return;
+  const pixArea = document.getElementById("pixArea");
+  const pixCode = document.getElementById("pixCode");
+  const qrImg = pixArea?.querySelector(".pix-qr");
 
-  pixQrPreview.classList.remove("hidden");
+  if (!pixArea || !pixCode || !qrImg) {
+    console.error("Elementos PIX não encontrados no DOM");
+    return;
+  }
 
-  pixQrPreview.innerHTML = `
-    <img src="${data.qr_url}" width="220" height="220" style="border-radius:12px">
+  // mostra a área do PIX
+  pixArea.classList.remove("hidden");
 
-    <p style="font-size:13px;margin-top:10px;">
-      Escaneie com o app do banco para pagar
-    </p>
+  // atualiza QR Code
+  qrImg.src = data.qr_url;
 
-    <textarea readonly style="width:100%;height:90px;font-size:12px;">
-Chave: ${data.chave}
-Nome: ${data.nome}
-Cidade: ${data.cidade}
-Valor: R$ ${data.valor}
-    </textarea>
-  `;
+  // coloca o payload REAL para copiar
+  pixCode.value = data.payload;
 }
 
+
+
 function copiarPix() {
-  const el = document.getElementById("pixPayload");
-  el.select();
-  document.execCommand("copy");
-  alert("Código PIX copiado! Abra o app do banco e cole.");
+  const campo = document.getElementById("pixCode");
+
+  campo.select();
+  campo.setSelectionRange(0, 99999);
+
+  navigator.clipboard.writeText(campo.value).then(() => {
+    alert("Código PIX copiado! Abra seu banco e cole para pagar.");
+  }).catch(() => {
+    alert("Não foi possível copiar automaticamente. Segure e copie manualmente.");
+  });
 }
 
 function getTotalParaPix() {

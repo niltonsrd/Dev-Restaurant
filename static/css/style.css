@@ -1332,3 +1332,68 @@ body {
 }
 
 
+.pix-box {
+  max-width: 380px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+#pixCode {
+  width: 100%;
+  height: 90px;
+  margin: 12px 0;
+  padding: 10px;
+  font-size: 13px;
+  border-radius: 8px;
+  resize: none;
+}
+
+.btn-pix {
+  width: 100%;
+  background: #00c853;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-copy-pix {
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px 16px;
+
+  background: linear-gradient(135deg, #00c853, #00e676);
+  color: #0b2e1b;
+
+  border: none;
+  border-radius: 14px;
+
+  font-size: 15px;
+  font-weight: 600;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 8px 20px rgba(0, 230, 118, 0.35);
+}
+
+.btn-copy-pix:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(0, 230, 118, 0.55);
+}
+
+.btn-copy-pix:active {
+  transform: scale(0.97);
+}
+
+/* Ícone */
+.btn-copy-pix::before {
+  content: "📋";
+  font-size: 18px;
+}

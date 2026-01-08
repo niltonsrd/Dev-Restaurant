@@ -202,17 +202,38 @@
           </div>
 
           <!-- Pagamento - Pix -->
-          <div id="paymentPixBox" class="hidden pix-box">
-            <p>Pague via PIX e envie o comprovante ⚡</p>
-
-            <button class="btn" id="generatePixBtn">Gerar QR Code PIX</button>
-
-            <div id="pixQrPreview" class="qr-preview hidden"></div>
-
-            <label>Enviar comprovante:</label>
-
-            <input type="file" id="pixComprovante" accept="image/*" />
+          <div id="paymentPixBox" class="pix-box hidden">
+          
+            <p class="pix-title">⚡ Pague via PIX</p>
+            <p class="pix-subtitle">
+              Escaneie o QR Code ou copie o código PIX para pagar no app do banco
+            </p>
+          
+            <button type="button" class="btn btn-pix-generate" id="generatePixBtn">
+              Gerar QR Code PIX
+            </button>
+          
+            <!-- QR + Código -->
+            <div id="pixArea" class="hidden">
+          
+              <div class="qr-wrapper">
+                <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code PIX" class="pix-qr">
+              </div>
+          
+              <div class="pix-copy-box">
+                <textarea id="pixCode" readonly>{{ pix_payload }}</textarea>
+          
+                <button type="button" class="btn-copy-pix" onclick="copiarPix()">
+                Copiar código PIX
+                </button>
+              </div>
+          
+              <label class="pix-label">Enviar comprovante:</label>
+              <input type="file" id="pixComprovante" accept="image/*">
+          
+            </div>
           </div>
+
 
           <!-- Observação -->
           <label for="customerNote">Observação</label>
