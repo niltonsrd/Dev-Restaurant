@@ -6,6 +6,7 @@ const STATUS_VALIDOS = [
   "pendente",
   "recebido",
   "preparando",
+  "pronto",         
   "saiu_entrega",
   "concluido",
   "cancelado",
@@ -334,14 +335,30 @@ async function loadVendas() {
       <td data-label="Pagamento">${pagamentoLabel}</td>
       <td data-label="Data">${new Date(v.data).toLocaleString()}</td>
       <td data-label="Status">
-        <select class="status-select ${pillClass}" data-id="${v.id
-      }" style="width:100%">
-          ${STATUS_VALIDOS.map(
-        (s) => `
-              <option value="${s}" ${s === status ? "selected" : ""}>
-                ${s.replace("_", " ").toUpperCase()}
-              </option>`
-      ).join("")}
+        <select
+              class="status-select ${pillClass}" 
+              data-id="${v.id}"
+              data-tipo="${String(v.tipo_entrega).toLowerCase().trim()}"
+              style="width:100%">
+          ${STATUS_VALIDOS
+        .filter((s) => {
+          // 🚚 Pedido de ENTREGA → não pode ver "pronto"
+          if (v.tipo_entrega === "entrega" && s === "pronto") return false;
+
+          // 🏃 Pedido de RETIRADA → não pode ver "saiu_entrega"
+          if (v.tipo_entrega === "retirada" && s === "saiu_entrega") return false;
+
+          return true;
+        })
+        .map(
+          (s) => `
+      <option value="${s}" ${s === status ? "selected" : ""}>
+        ${s.replace("_", " ").toUpperCase()}
+      </option>`
+        )
+        .join("")}
+
+
         </select>
       </td>
       <td class="acoes-venda">
@@ -374,23 +391,24 @@ async function salvarStatus(id) {
 
   const novoStatus = select.value;
 
-  // 🔥 RECEBIDO → modal de tempo
+  // RECEBIDO → modal de tempo
   if (novoStatus === "recebido") {
     abrirModalTempo(id, novoStatus);
     return;
   }
 
-  // 🔔 OUTROS STATUS → modal de confirmação
+  // CONFIRMAÇÃO PADRÃO
   pedidoConfirmacaoId = id;
   statusConfirmacaoPendente = novoStatus;
 
   mostrarConfirmacao(
-    `Tem certeza que deseja alterar o status para "<b>${novoStatus.replace(
-      "_",
-      " "
-    )}</b>"?`
+    `Tem certeza que deseja alterar o status para "<b>${novoStatus
+      .replace("_", " ")
+      .toUpperCase()}</b>"?`
   );
 }
+
+
 
 async function confirmarAlteracaoStatus() {
   if (!pedidoConfirmacaoId || !statusConfirmacaoPendente) return;

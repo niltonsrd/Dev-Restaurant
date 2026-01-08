@@ -187,8 +187,11 @@
           <select id="filterStatus">
             <option value="">Todos status</option>
             <option value="pendente">Pendente</option>
-            <option value="concluido">Concluído</option>
+            <option value="recebido">Recebido</option>
+            <option value="pronto">Pronto</option>
+            <option value="saiu_entrega">Saiu para entrega</option>
           </select>
+
           <button class="btn" onclick="loadVendas()">Atualizar</button>
         </div>
 
@@ -382,6 +385,27 @@
             </div>
           </div>
 
+          <div class="card" style="margin-top:20px">
+            <h3>💳 Configuração do PIX</h3>
+
+            <label class="small">Chave PIX</label>
+            <input type="text" name="pix_key" value="{{ settings.pix_key or '' }}">
+
+            <label class="small">Nome do Recebedor</label>
+            <input type="text" name="pix_nome" value="{{ settings.pix_nome or '' }}">
+
+            <label class="small">Banco</label>
+            <input type="text" name="pix_banco" value="{{ settings.pix_banco or '' }}">
+
+            <label class="small">Cidade</label>
+            <input type="text" name="pix_cidade" value="{{ settings.pix_cidade or '' }}">
+
+            <label class="small">Descrição padrão</label>
+            <input type="text" name="pix_descricao" value="{{ settings.pix_descricao or '' }}">
+          </div>
+
+
+
           <!-- 💾 AÇÕES -->
           <div style="display: flex; gap: 10px">
             <button class="btn" type="submit">Salvar Configurações</button>
@@ -390,6 +414,7 @@
             </button>
           </div>
         </form>
+
 
         <div class="card" style="margin-top: 16px">
           <h3>🔐 Segurança do Painel</h3>

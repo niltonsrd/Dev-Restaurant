@@ -6,6 +6,9 @@ import csv
 import io
 import json
 import time
+import crcmod
+import qrcode
+import io
 # 🟢 CORREÇÃO NAS IMPORTS: Mantenha timedelta e timezone
 from datetime import datetime, timezone, timedelta 
 from flask import (
@@ -38,6 +41,7 @@ STATUS_VALIDOS = [
     "pendente",       # pedido criado no site
     "recebido",       # operador confirmou
     "preparando",     # em preparo
+    "pronto",         # pronto para entrega/retirada
     "saiu_entrega",   # saiu para entrega
     "concluido",      # entregue
     "cancelado"       # cancelado (opcional)
@@ -56,6 +60,33 @@ from datetime import datetime, timedelta
 def calcular_data_limite(meses):
     return (datetime.now() - timedelta(days=30 * meses)).strftime("%Y-%m-%d %H:%M:%S")
 
+def crc16(payload):
+    crc16_func = crcmod.predefined.mkCrcFun('crc-ccitt-false')
+    crc = crc16_func(payload.encode('utf-8'))
+    return format(crc, '04X')
+
+def gerar_payload_pix(chave, nome, cidade, valor, descricao):
+    def campo(id, valor):
+        return f"{id}{len(valor):02d}{valor}"
+
+    payload = "000201"
+    payload += campo("26",
+        campo("00", "br.gov.bcb.pix") +
+        campo("01", chave) +
+        campo("02", descricao)
+    )
+    payload += "52040000"
+    payload += "5303986"
+    payload += campo("54", f"{valor:.2f}")
+    payload += "5802BR"
+    payload += campo("59", nome[:25])
+    payload += campo("60", cidade[:15])
+    payload += "62070503***"
+
+    payload_com_crc = payload + "6304"
+    payload_com_crc += crc16(payload_com_crc)
+
+    return payload_com_crc
 
 
 def alterar_status_pedido(pedido_id, novo_status,):
@@ -597,32 +628,44 @@ def save_config():
 
     try:
         settings_to_save = {
+            # ================= TEXTOS =================
             'whatsapp_number': request.form.get('whatsapp_number'),
             'site_title': request.form.get('site_title'),
             'site_description': request.form.get('site_description'),
+
+            # ================= ENDEREÇO =================
             'cnpj': request.form.get('cnpj'),
             'address_street': request.form.get('address_street'),
             'address_number': request.form.get('address_number'),
             'address_city': request.form.get('address_city'),
             'address_state': request.form.get('address_state'),
+
+            # ================= ENTREGA =================
             'delivery_cep_loja': request.form.get('delivery_cep_loja'),
             'delivery_taxa_fixa': request.form.get('delivery_taxa_fixa', '0.00').replace(',', '.'),
             'delivery_preco_km': request.form.get('delivery_preco_km', '0.00').replace(',', '.'),
             'delivery_taxa_maxima': request.form.get('delivery_taxa_maxima', '0.00').replace(',', '.'),
+
+            # ================= PIX =================
+            'pix_key': request.form.get('pix_key'),
+            'pix_nome': request.form.get('pix_nome'),
+            'pix_banco': request.form.get('pix_banco'),
+            'pix_cidade': request.form.get('pix_cidade'),
+            'pix_descricao': request.form.get('pix_descricao'),
         }
 
         for key, value in settings_to_save.items():
             if value is not None:
                 update_setting(db, key, value)
 
-        # Upload logo
+        # ================= UPLOAD LOGO =================
         logo_file = request.files.get('logo_file')
         if logo_file and allowed_file(logo_file.filename):
             filename = secure_filename(logo_file.filename)
             logo_file.save(os.path.join(UPLOAD_FOLDER_PRODUCTS, filename))
             update_setting(db, 'logo_path', url_for('static', filename=f'img/{filename}'))
 
-        # Upload background
+        # ================= UPLOAD BACKGROUND =================
         background_file = request.files.get('background_file')
         if background_file and allowed_file(background_file.filename):
             filename = secure_filename(background_file.filename)
@@ -638,11 +681,57 @@ def save_config():
 
     except Exception as e:
         db.rollback()
-        print("Erro:", e)
+        print("Erro ao salvar configurações:", e)
         return jsonify({
             "success": False,
             "message": "Erro ao salvar configurações."
         }), 500
+
+
+
+@app.route("/api/pix/gerar", methods=["POST"])
+def api_gerar_pix():
+    data = request.get_json(silent=True) or {}
+    valor = data.get("valor")
+
+    # 🔒 Validação correta
+    try:
+        valor = float(valor)
+        if valor <= 0:
+            raise ValueError()
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Valor inválido"}), 400
+
+    chave = get_setting("pix_key")
+    nome = get_setting("pix_nome")
+    cidade = get_setting("pix_cidade")
+    descricao = get_setting("pix_descricao") or "Pedido via sistema"
+
+    if not chave or not nome or not cidade:
+        return jsonify({"ok": False, "error": "PIX não configurado"}), 400
+
+    payload = gerar_payload_pix(
+        chave=chave,
+        nome=nome,
+        cidade=cidade,
+        valor=valor,
+        descricao=descricao
+    )
+
+    qr_url = (
+        "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=" +
+        payload
+    )
+
+    return jsonify({
+        "ok": True,
+        "payload": payload,
+        "qr_url": qr_url,
+        "chave": chave,
+        "nome": nome,
+        "cidade": cidade,
+        "valor": f"{valor:.2f}"
+    })
 
 
   
@@ -1034,25 +1123,37 @@ def api_checkout():
     if customer_contact: lines.append(f"📞 Contato: {customer_contact}")
     if customer_note: lines.append(f"📝 Obs: {customer_note}")
     lines.append("")
-    if tipo_entrega == "retirada":
-        lines.append(f"💳 *Pagamento:* {payment_method.capitalize()} (no balcão)")
-    else:
-        lines.append(f"💳 *Pagamento:* {payment_method.capitalize()} -- O Motoboy leva a máquininha")
-
-
-    if payment_method == "dinheiro":
-        if troco_para:
-            try:
-                v = float(troco_para.replace(",", "."))
-                lines.append(f"Troco para: R$ {v:.2f}")
-            except:
-                lines.append(f"Troco para: {troco_para}")
+    # ------------------------------
+    # TEXTO DE PAGAMENTO (CORRETO)
+    # ------------------------------
+    if payment_method == "pix":
+        if pix_path:
+            lines.append("💳 *Pagamento:* Pix enviado (aguardando confirmação)")
         else:
-            lines.append("✅ Sem troco")
+            lines.append("💳 *Pagamento:* Pix (no balcão)")
+    elif payment_method == "dinheiro":
+        lines.append("💳 *Pagamento:* Dinheiro")
+    elif payment_method == "cartao":
+        lines.append("💳 *Pagamento:* Cartão")
+    else:
+        lines.append(f"💳 *Pagamento:* {payment_method.capitalize()}")
 
+    # Informação adicional para entrega
+    if tipo_entrega == "entrega" and payment_method in ["cartao", "dinheiro"]:
+        lines.append("🚚 O motoboy leva a maquininha")
 
-    # PIX só mostra comprovante se for ENTREGA
-    if payment_method == "pix" and tipo_entrega == "entrega":
+        if payment_method == "dinheiro":
+            if troco_para:
+                try:
+                    v = float(troco_para.replace(",", "."))
+                    lines.append(f"Troco para: R$ {v:.2f}")
+                except:
+                    lines.append(f"Troco para: {troco_para}")
+            else:
+                lines.append("✅ Sem troco")
+
+    # PIX – mostra comprovante se existir
+    if payment_method == "pix":
         lines.append("💠 *PIX:*")
 
         if pix_path:
@@ -1062,14 +1163,12 @@ def api_checkout():
         else:
             lines.append("⚠️ *Comprovante não enviado*")
 
-
-
-
     lines.append("")
     lines.append("🍔 *Itens:*")
     lines.append("")
 
     total_items = 0.0
+
 
     # ------------------------------
     #   LOOP DOS ITENS
@@ -1160,11 +1259,11 @@ def api_checkout():
         cur.execute("""
     INSERT INTO pedidos 
     (nome_cliente, endereco, bairro, total, data, telefone,
-     forma_pagamento, status, observacoes, delivery_fee, pix_comprovante)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     forma_pagamento, status, observacoes, delivery_fee, pix_comprovante, tipo_entrega)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """, (
     customer_name,
-    customer_address, 
+    customer_address,
     customer_bairro,
     total_final,
     now,
@@ -1173,8 +1272,10 @@ def api_checkout():
     "pendente",
     customer_note,
     delivery_fee,
-    pix_path
+    pix_path,
+    tipo_entrega   # 🔥 AQUI ESTÁ O PONTO CRÍTICO
 ))
+
 
         pedido_id = cur.lastrowid
         
@@ -1606,74 +1707,6 @@ def admin_reset_senha(token):
     <p>Agora você pode logar usando a senha padrão do sistema.</p>
     <p><strong>Recomenda-se trocar a senha após o login.</strong></p>
     """
-
-
-
-@app.route("/admin/configuracoes/salvar", methods=["POST"])
-def salvar_configuracoes():
-    if request.cookies.get("admin_auth") != "1":
-        return jsonify({
-            "success": False,
-            "message": "Sessão expirada. Faça login novamente."
-        }), 403
-
-    db = get_db()
-    cur = db.cursor()
-
-    def set_setting(key, value):
-        cur.execute("""
-            INSERT INTO settings (key, value)
-            VALUES (?, ?)
-            ON CONFLICT(key) DO UPDATE SET value = excluded.value
-        """, (key, value))
-
-    try:
-        # ================= TEXTOS =================
-        set_setting("whatsapp_number", request.form.get("whatsapp_number", ""))
-        set_setting("site_title", request.form.get("site_title", ""))
-        set_setting("site_description", request.form.get("site_description", ""))
-
-        # ================= ENDEREÇO =================
-        set_setting("cnpj", request.form.get("cnpj", ""))
-        set_setting("address_street", request.form.get("address_street", ""))
-        set_setting("address_number", request.form.get("address_number", ""))
-        set_setting("address_city", request.form.get("address_city", ""))
-        set_setting("address_state", request.form.get("address_state", ""))
-
-        # ================= ENTREGA =================
-        set_setting("delivery_cep_loja", request.form.get("delivery_cep_loja", ""))
-        set_setting("delivery_taxa_fixa", request.form.get("delivery_taxa_fixa", "0"))
-        set_setting("delivery_preco_km", request.form.get("delivery_preco_km", "0"))
-        set_setting("delivery_taxa_maxima", request.form.get("delivery_taxa_maxima", "0"))
-
-        # ================= IMAGENS =================
-        os.makedirs("static/img", exist_ok=True)
-
-        logo = request.files.get("logo_file")
-        if logo and logo.filename:
-            filename = secure_filename(logo.filename)
-            logo.save(os.path.join("static", "img", filename))
-            set_setting("logo_path", f"/static/img/{filename}")
-
-        bg = request.files.get("background_file")
-        if bg and bg.filename:
-            filename = secure_filename(bg.filename)
-            bg.save(os.path.join("static", "img", filename))
-            set_setting("background_path", f"/static/img/{filename}")
-
-        db.commit()
-
-        return jsonify({
-            "success": True,
-            "message": "Configurações salvas com sucesso."
-        })
-
-    except Exception as e:
-        db.rollback()
-        return jsonify({
-            "success": False,
-            "message": f"Erro ao salvar configurações: {str(e)}"
-        }), 500
 
 
 
@@ -2787,37 +2820,39 @@ def api_admin_vendas():
     cur = db.cursor()
 
     cur.execute("""
-        SELECT 
-            id,
-            nome_cliente,
-            endereco,
-            telefone,
-            total,
-            forma_pagamento,
-            status,
-            observacoes,
-            delivery_fee,
-            data,
-            pix_comprovante,
+    SELECT 
+        id,
+        nome_cliente,
+        endereco,
+        telefone,
+        total,
+        forma_pagamento,
+        status,
+        observacoes,
+        delivery_fee,
+        data,
+        pix_comprovante,
+        tipo_entrega,
 
-            CASE
-                WHEN forma_pagamento = 'pix'
-                     AND (pix_comprovante IS NULL OR pix_comprovante = '')
-                THEN 1
-                ELSE 0
-            END AS pix_pendente,
+        CASE
+            WHEN forma_pagamento = 'pix'
+                 AND (pix_comprovante IS NULL OR pix_comprovante = '')
+            THEN 1
+            ELSE 0
+        END AS pix_pendente,
 
-            CASE
-                WHEN forma_pagamento = 'pix'
-                     AND pix_comprovante IS NOT NULL
-                     AND pix_comprovante != ''
-                THEN 1
-                ELSE 0
-            END AS pix_enviado
+        CASE
+            WHEN forma_pagamento = 'pix'
+                 AND pix_comprovante IS NOT NULL
+                 AND pix_comprovante != ''
+            THEN 1
+            ELSE 0
+        END AS pix_enviado
 
-        FROM pedidos
-        ORDER BY id DESC
-    """)
+    FROM pedidos
+    ORDER BY id DESC
+""")
+
 
     rows = cur.fetchall()
     pedidos = [dict(r) for r in rows]
@@ -3198,6 +3233,15 @@ def api_update_venda_status(pedido_id):
 
         if pedido['status'] == novo_status:
             return jsonify(success=True, message='Status já estava atualizado')
+        # ===============================
+        # REGRA DE FLUXO ENTREGA x RETIRADA
+        # ===============================
+        tipo_entrega = pedido["tipo_entrega"] or "entrega"
+
+        # 🔁 RETIRADA não pode ir para SAIU_ENTREGA → vira PRONTO
+        if novo_status == "saiu_entrega" and tipo_entrega == "retirada":
+            novo_status = "pronto"
+
 
         agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -3262,19 +3306,38 @@ def api_update_venda_status(pedido_id):
         mensagem = None
 
         if novo_status == "recebido":
-            mensagem = (
-                f"🍽️ *Pedido confirmado!*\n\n"
-                f"Olá {pedido['nome_cliente']}, recebemos seu pedido e ele já está em preparo.\n"
-                f"⏱️ Tempo estimado: {tempo_preparo} minutos.\n\n"
-                f"Qualquer dúvida, estamos à disposição 😊"
-            )
+            if pedido["tipo_entrega"] == "retirada":
+                mensagem = (
+                    f"🍽️ *Pedido recebido!*\n\n"
+                    f"Olá {pedido['nome_cliente']}, recebemos seu pedido com sucesso.\n"
+                    f"👨‍🍳 Ele já está em preparo.\n\n"
+                    f"⏱️ Tempo estimado: {tempo_preparo} minutos.\n\n"
+                    f"📢 Avisaremos assim que estiver pronto para retirada 😊"
+                )
+            else:
+                mensagem = (
+                    f"🍽️ *Pedido confirmado!*\n\n"
+                    f"Olá {pedido['nome_cliente']}, recebemos seu pedido e ele já está em preparo.\n"
+                    f"⏱️ Tempo estimado: {tempo_preparo} minutos.\n\n"
+                    f"Qualquer dúvida, estamos à disposição 😊"
+                )
 
         elif novo_status == "saiu_entrega":
+            # Só faz sentido para ENTREGA
             mensagem = (
                 f"🚚 *Pedido a caminho!*\n\n"
                 f"Olá {pedido['nome_cliente']}, seu pedido já saiu para entrega.\n"
                 f"🛵 Em breve chegará até você!\n\n"
                 f"Obrigado pela preferência 🙌"
+            )
+
+        elif novo_status == "pronto":
+            # Apenas para RETIRADA
+            mensagem = (
+                f"✅ *Pedido pronto para retirada!*\n\n"
+                f"Olá {pedido['nome_cliente']}, seu pedido já está pronto 🎉\n\n"
+                f"📍 Você já pode vir retirar no balcão.\n"
+                f"Estamos te aguardando 😊"
             )
 
         return jsonify(

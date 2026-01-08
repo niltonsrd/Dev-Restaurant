@@ -735,27 +735,76 @@ if (pixComprovante)
   pixComprovante.addEventListener("change", updateCheckoutButtonState);
 
 if (generatePixBtn) {
-  generatePixBtn.addEventListener("click", () => {
-    const total = getCartSubtotal() + currentDeliveryFee;
-    const chavePix = "71991118924";
-    const recebedor = "Seu Restaurante";
-    const banco = "Banco Exemplo";
-    const qrUrl =
-      "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=" +
-      encodeURIComponent(
-        `PIX: ${chavePix} - Valor: R$ ${formatCurrency(total)}`
-      );
-    if (pixQrPreview) pixQrPreview.classList.remove("hidden");
-    if (pixQrPreview)
-      pixQrPreview.innerHTML = `
-            <img src="${qrUrl}" width="200" height="200" style="border-radius:8px;">
-            <p style="font-size:12px;margin-top:6px;">Chave PIX:</p>
-            <textarea readonly style="width:100%;height:60px;font-size:12px;">Chave: ${chavePix}
-Banco: ${banco}
-Recebedor: ${recebedor}</textarea>
-        `;
+  generatePixBtn.addEventListener("click", async () => {
+    const total = getTotalParaPix();
+
+    console.log("VALOR PIX ENVIADO:", total, typeof total);
+
+    if (!total || total <= 0) {
+      alert("Adicione itens ao carrinho antes de gerar o PIX.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/pix/gerar", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ valor: total })
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        console.error("Erro PIX:", data);
+        alert(data.error || "Erro ao gerar PIX");
+        return;
+      }
+
+      mostrarQrPix(data);
+
+    } catch (e) {
+      console.error(e);
+      alert("Erro de conexão ao gerar PIX");
+    }
   });
 }
+
+function mostrarQrPix(data) {
+  if (!pixQrPreview) return;
+
+  pixQrPreview.classList.remove("hidden");
+
+  pixQrPreview.innerHTML = `
+    <img src="${data.qr_url}" width="220" height="220" style="border-radius:12px">
+
+    <p style="font-size:13px;margin-top:10px;">
+      Escaneie com o app do banco para pagar
+    </p>
+
+    <textarea readonly style="width:100%;height:90px;font-size:12px;">
+Chave: ${data.chave}
+Nome: ${data.nome}
+Cidade: ${data.cidade}
+Valor: R$ ${data.valor}
+    </textarea>
+  `;
+}
+
+function copiarPix() {
+  const el = document.getElementById("pixPayload");
+  el.select();
+  document.execCommand("copy");
+  alert("Código PIX copiado! Abra o app do banco e cole.");
+}
+
+function getTotalParaPix() {
+  const subtotal = Number(getCartSubtotal() || 0);
+  const frete = Number(currentDeliveryFee || 0);
+
+  return +(subtotal + frete).toFixed(2);
+}
+
 
 // ---------------------------
 // Checkout (envia para /api/checkout)
